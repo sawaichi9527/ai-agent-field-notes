@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handoff — dsh web 啟動緩慢（Windows 10）</title>
+<style>
+  :root{
+    --fg:#1c2024; --muted:#5b6672; --bg:#ffffff; --panel:#f6f8fa;
+    --line:#d8dee4; --accent:#0b6b6b; --warn:#8a4b00; --warnbg:#fff6e8;
+    --ok:#186a3b; --okbg:#eefaf1; --bad:#8b1e1e; --badbg:#fdeeee;
+    --code:#23292f; --codefg:#e6edf3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --fg:#e6edf3; --muted:#9aa7b4; --bg:#0f1419; --panel:#161c23;
+      --line:#2a323b; --accent:#5fd0c8; --warn:#f0b46b; --warnbg:#2a2013;
+      --ok:#7ddba0; --okbg:#12241a; --bad:#f08a8a; --badbg:#2a1414;
+      --code:#0b0f14; --codefg:#d7e2ec;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:32px 20px 80px; background:var(--bg); color:var(--fg);
+    font:16px/1.7 "Segoe UI","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;
+  }
+  main{max-width:960px;margin:0 auto}
+  h1{font-size:1.85rem;line-height:1.3;margin:0 0 6px}
+  h2{font-size:1.22rem;margin:2.4em 0 .7em;padding-bottom:.3em;border-bottom:2px solid var(--line)}
+  h3{font-size:1.02rem;margin:1.6em 0 .5em}
+  p,li{margin:.5em 0}
+  .sub{color:var(--muted);margin:0 0 22px}
+  .meta{width:100%;border-collapse:collapse;margin:18px 0 26px;font-size:.93rem}
+  .meta th,.meta td{border:1px solid var(--line);padding:7px 11px;text-align:left;vertical-align:top}
+  .meta th{background:var(--panel);width:11em;font-weight:600;white-space:nowrap}
+  table.data{width:100%;border-collapse:collapse;margin:14px 0;font-size:.92rem}
+  table.data th,table.data td{border:1px solid var(--line);padding:7px 10px;text-align:left}
+  table.data th{background:var(--panel);font-weight:600}
+  table.data td.num{text-align:right;font-variant-numeric:tabular-nums}
+  code{font-family:"Cascadia Mono",Consolas,ui-monospace,monospace;font-size:.88em;
+       background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  pre{background:var(--code);color:var(--codefg);padding:14px 16px;border-radius:8px;
+      overflow-x:auto;font-size:.84rem;line-height:1.55}
+  pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
+  .box{border-left:5px solid var(--accent);background:var(--panel);
+       padding:12px 16px;border-radius:0 8px 8px 0;margin:18px 0}
+  .box.warn{border-color:var(--warn);background:var(--warnbg)}
+  .box.ok{border-color:var(--ok);background:var(--okbg)}
+  .box.bad{border-color:var(--bad);background:var(--badbg)}
+  .box h3{margin-top:0}
+  .tag{display:inline-block;font-size:.76rem;font-weight:700;letter-spacing:.02em;
+       padding:2px 8px;border-radius:999px;border:1px solid currentColor;vertical-align:2px}
+  .tag.done{color:var(--ok)} .tag.todo{color:var(--warn)} .tag.no{color:var(--bad)}
+  ul.check{list-style:none;padding-left:0}
+  ul.check>li{padding-left:1.9em;position:relative;margin:.6em 0}
+  ul.check>li::before{content:"☐";position:absolute;left:.2em;top:-.05em;font-size:1.1em;color:var(--muted)}
+  ol.steps{padding-left:1.4em}
+  ol.steps>li{margin:.7em 0}
+  .toc{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 20px;font-size:.93rem}
+  .toc ol{margin:.3em 0;padding-left:1.3em}
+  .toc a{color:var(--accent);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  footer{margin-top:56px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:.86rem}
+  .k{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<main>
+
+<h1>Handoff：<code>dsh web</code> 啟動要等十幾秒（Windows 10）</h1>
+<p class="sub">來源機器已完成量測與一項清理；本文件交給<strong>另一台 Windows 10（已升級到 0.2.1-rc.5）上的 DSH</strong> 接手，用同一套方法在該機重測並收斂原因。</p>
+<p class="sub"><strong>2026-10-30 更新：目標機已完成重測與覆核。</strong>結論是<strong>來源機的核心結論成立</strong>（目標機 CPU/wall = 106–109%，同樣是純 CPU 密集），落差只在幅度；但本文件有 <strong>10 處描述與目標機實況不符</strong>、一個<strong>方法論陷阱</strong>，以及一個<strong>從未量過的問題</strong>。請先讀 <a href="#target">第 11–14 節</a>。</p>
+
+<div class="box ok">
+  <h3>覆核狀態 <span class="tag done">已完成</span></h3>
+  <p>目標機（Windows 10 Enterprise LTSC 2019 / Core 2 Quad Q9500）實測：中位數 <span class="k">21,645 ms</span>、CPU <span class="k">23,312 ms</span>、<strong>CPU/wall 106–109%</strong>。依第 4 節的判讀規則＝<strong>CPU 密集</strong>，因此「不要查磁碟、不要加防毒排除」在目標機上<strong>也正確</strong>。</p>
+  <p>需要修正的是<strong>可照抄性</strong>：第 6 節有兩項在目標機根本不適用（沒有 <code>compatibility.json</code>、沒有 <code>did not activate</code>）。逐條對照見 <a href="#errata">第 12 節</a>。</p>
+</div>
+
+<table class="meta">
+  <tr><th>建立日期</th><td>2026-10-30（Asia/Taipei）</td></tr>
+  <tr><th>最後更新</th><td>2026-10-30（目標機覆核，新增第 11–14 節）</td></tr>
+  <tr><th>來源機器</th><td>Windows 10 21H2（19044）、Intel Core i7-4900MQ @2.80GHz、8 邏輯核、Node v24.18.0</td></tr>
+  <tr><th>來源 DSH 版本</th><td><code>@deepseek-ai/dsh@0.2.1-rc.2</code>（全域 npm 安裝於 <code>%APPDATA%\npm\node_modules\@deepseek-ai\dsh</code>）</td></tr>
+  <tr><th>目標機器</th><td>Windows 10、DSH <strong><code>0.2.1-rc.5</code></strong>（剛升級），症狀「跟來源機器類似：下 <code>dsh web</code> 要等很久」</td></tr>
+  <tr><th>目標機實測<br>（2026-10-30）</th><td>Windows 10 Enterprise LTSC 2019（17763.9376）、<strong>Intel Core 2 Quad Q9500 @2.83GHz（4 執行緒，2008）</strong>、Node <code>v24.21.0</code>、DSH <code>0.2.1-rc.5</code>。<br>中位數啟動 <span class="k">21,645 ms</span>、CPU <span class="k">23,312 ms</span>、<strong>CPU/wall 106–109%</strong>。<br>Profile 為 <strong>10 條 bundle（2 官方 + 8 第三方）</strong>。</td></tr>
+  <tr><th>來源機結論</th><td>純 CPU-bound 的模組載入，<strong>不是</strong>網路／防毒／連接埠問題。中位數啟動 <span class="k">16.1 秒</span>（標準 profile <span class="k">11.9 秒</span>）。<strong>2026-10-30：目標機已證實同因</strong>（CPU/wall 106–109%），幅度差由 CPU 世代解釋。</td></tr>
+</table>
+
+<div class="toc">
+  <strong>目錄</strong>
+  <ol>
+    <li><a href="#tldr">TL;DR</a></li>
+    <li><a href="#goal">你要完成的 3 件事</a></li>
+    <li><a href="#facts">來源機器已確認的事實</a></li>
+    <li><a href="#rules">判讀規則（先分類，再查原因）</a></li>
+    <li><a href="#measure">量測步驟（可直接貼上）</a></li>
+    <li><a href="#rc5">升級到 rc.5 後優先檢查項</a></li>
+    <li><a href="#changes">來源機器已做的變更（勿盲抄）</a></li>
+    <li><a href="#ruledout">已證偽、不要浪費時間的方向</a></li>
+    <li><a href="#safety">安全注意（會誤刪真實檔案）</a></li>
+    <li><a href="#report">回報格式</a></li>
+    <li><a href="#target">11. 目標機實測結果（2026-10-30）<span class="tag done">新增</span></a></li>
+    <li><a href="#errata">12. 覆核勘誤：與本文件不符的 10 處<span class="tag done">新增</span></a></li>
+    <li><a href="#pitfall">13. 方法論陷阱：沙箱內量到的比值不可用<span class="tag done">新增</span></a></li>
+    <li><a href="#open">14. 仍未回答的問題與後續<span class="tag done">新增</span></a></li>
+    <li><a href="#appendix">附錄：原始數據與檔案清單</a></li>
+  </ol>
+</div>
+
+<h2 id="tldr">1. TL;DR</h2>
+<div class="box">
+  <h3>三句話</h3>
+  <ol>
+    <li>「<code>dsh web</code> 慢」有兩種截然不同的成因，<strong>先量 CPU 時間與實際耗時的比值</strong>就能分開；不要憑感覺查。</li>
+    <li>來源機是 <strong>CPU 密集</strong>：16 秒裡 13.3 秒是 CPU，比值 108–126%，代表行程全程在算、沒有在等。其中約 <strong>39% 是檔案 metadata 查詢</strong>（<code>lstat</code>/<code>stat</code>/<code>realpath</code>）、約 <strong>17% 是 V8 編譯 JS</strong>，DSH 自己的邏輯只佔 19.5%。</li>
+    <li>目標機剛升到 <code>0.2.1-rc.5</code>，<strong>最可能的原因是升級本身</strong>（peer-dep 重新檢查、外掛被 skip、<code>node_modules</code> 重鏈、殘留的失效 patch 條目），因此第 6 節的檢查優先於第 5 節的效能量測。<br><span class="tag no">已被目標機否證</span> 目標機沒有 skip、沒有豁免、沒有失效 patch 條目，<strong>比值 106–109%</strong>——原因就是第 5 節那條路（CPU 密集的模組載入）。第 6 節請降級為「只在日誌真的出現 skip 時才查」。</li>
+  </ol>
+</div>
+
+<div class="box ok">
+  <h3>目標機覆核後的四句話</h3>
+  <ol>
+    <li><strong>判讀方法有效且可複製。</strong>目標機量到 CPU/wall 106–109%，落在 ≥90% 的「CPU 密集」→ 不要查磁碟、不要加防毒排除，這個處置在目標機上也正確。</li>
+    <li><strong>但幅度不等於來源機。</strong>目標機 <span class="k">21.6 秒</span> vs 來源機 <span class="k">16.1 秒</span>，差額由 CPU 世代解釋（2008 的 Core 2 Quad Q9500 vs 2013 的 i7-4900MQ）。<strong>23.3 秒 CPU 時間就是該機的地板</strong>，砍 bundle 只能把 21.6 拉回 ~16 秒。</li>
+    <li><strong>本文件從未量「0.2.0 → 0.2.1 的差」。</strong>它量的是 rc.5 的絕對值，卻被拿去對比「體感」。若原始抱怨是「升級後變慢」，這一題<strong>仍然沒有答案</strong>（見 <a href="#open">第 14 節</a>）。</li>
+    <li><strong>超過一半的「升級後優先檢查項」在目標機不適用。</strong>沒有 <code>compatibility.json</code>、沒有 <code>did not activate</code> 警告。先讀 <a href="#errata">第 12 節</a>，不要照抄。</li>
+  </ol>
+</div>
+
+<h2 id="goal">2. 你要完成的 3 件事</h2>
+<ol class="steps">
+  <li><strong>先確認是「慢」還是「卡住」</strong>：量出 <code>dsh web</code> 從下指令到印出 <code>dsh web: http://…</code> 的秒數，以及同段時間的 CPU 時間。這一步就能把原因分到「CPU 密集」或「在等 I/O／網路」兩類。</li>
+  <li><strong>若是 CPU 密集</strong>：列出該機 profile 的 bundle 清單與檔案數量，和本文件附錄的基線比對，找出多出來的部分（外掛數量通常是唯一可控項）。</li>
+  <li><strong>若是升級造成</strong>：檢查 <code>dsh-web.log</code> 的 <code>skipping</code>／<code>did not activate</code> 訊息、<code>compatibility.json</code> 的豁免是否對 rc.5 失效、<code>node_modules</code> 是否被重鏈成大量新檔案。</li>
+</ol>
+<div class="box warn">
+  <strong>不要</strong>一開始就改設定。這份文件的方法論是「<strong>先量、後改</strong>」，因為來源機實測證明：<strong>方向猜錯的代價很高</strong>（編譯快取與防毒排除都被實測否證，花了時間卻零效果）。
+</div>
+<div class="box ok">
+  <strong>2026-10-30：這 3 件事已在目標機完成。</strong>
+  <ol>
+    <li><strong>是慢不是卡住，且是 CPU 密集</strong>：21.6 s、CPU/wall 106–109%（<a href="#target">第 11 節</a>）。</li>
+    <li><strong>規模已列出</strong>：10 條 bundle；全域 63,689 檔、profile 16,582 檔（比來源機多 1,064 檔／+6.9%）。</li>
+    <li><strong>「升級造成」這個主要假設不成立</strong>：目標機沒有 <code>skipping</code>、沒有 <code>compatibility.json</code>、沒有殘留 patch 條目（<a href="#errata">第 12 節</a>第 2–3 項）。</li>
+  </ol>
+</div>
+
+<h2 id="facts">3. 來源機器已確認的事實</h2>
+
+<h3>3.1 啟動時間（同一台機器、同一顆磁碟、交替重跑）</h3>
+<table class="data">
+  <tr>
+    <th>Profile 內容</th>
+    <th>逐次量測（秒）</th>
+    <th>中位數</th>
+    <th>CPU 時間 / 實際耗時</th>
+  </tr>
+  <tr>
+    <td>標準：只有官方 <code>@deepseek-ai/dsh-base</code> + <code>@deepseek-ai/dsh-web-app</code></td>
+    <td class="num">9.7 / 11.2 / 11.9 / 12.0 / 13.4</td>
+    <td class="num"><strong>11.9</strong></td>
+    <td class="num">118–126%</td>
+  </tr>
+  <tr>
+    <td>實際：<strong>9 條</strong> bundle（2 官方 + 7 第三方，見附錄 A）+ 使用者 patch 層<br><span class="tag no">原文誤植</span> 此處原寫「8 個 bundle（2 官方 + 7 第三方）」，但 2+7=9，附錄 A 也確實列 9 條</td>
+    <td class="num">12.4 / 12.5 / 12.7 / 16.1 / 16.1 / 16.3 / 17.3 / 18.9</td>
+    <td class="num"><strong>16.1</strong></td>
+    <td class="num">108–126%</td>
+  </tr>
+  <tr>
+    <td><strong>目標機</strong>：實際 <strong>10 條</strong> bundle（2 官方 + 8 第三方，多一個 <code>dsh-raw-html</code>）</td>
+    <td class="num">21.6 / 21.4 / 22.5</td>
+    <td class="num"><strong>21.6</strong></td>
+    <td class="num">106–109%</td>
+  </tr>
+</table>
+<p>結論：<strong>第三方 bundle + 使用者 patch 約 +4 秒</strong>（中位數）；其餘 ~12 秒是這台 2013 年 CPU 的固定成本。整段等待期間 DOS 視窗<strong>完全空白</strong>，只在最後印出網址，所以體感更差。</p>
+<div class="box">
+  <strong>目標機對照（2026-10-30）：</strong>中位數 <span class="k">21.6 秒</span>、CPU <span class="k">23.3 秒</span>、比值 <span class="k">106–109%</span>——<strong>同樣是 CPU 密集</strong>，只是這台的 CPU 是 2008 年的 Core 2 Quad Q9500（單核比 i7-4900MQ 慢約 1.8–2 倍）。因此 16.1 s → 21.6 s 的差額<strong>不需要</strong>用「升級變慢」解釋。<br>
+  換算：來源機 9 條→2 條省 4.2 秒，約 <strong>0.6 秒／個第三方 bundle</strong>。目標機 10 條砍回 2 條，預期省 <strong>5–6 秒（≈25%）</strong>，但那是回到 ~16 秒，<strong>不是</strong>回到 v0.2.0 的速度。
+</div>
+
+<h3>3.2 CPU 剖面（標準 profile，13.5 秒忙碌時間的佔比）</h3>
+<table class="data">
+  <tr><th>分類</th><th>佔忙碌 CPU</th><th>主要函式（自身時間）</th></tr>
+  <tr><td>檔案系統 metadata</td><td class="num">≈39%</td><td><code>lstat</code> 14.0%、<code>internalModuleStat</code> 8.9%、<code>stat</code> 3.0%、<code>readFileUtf8</code> 2.8%、<code>realpath</code> 2.6%、<code>getPackageScopeConfig</code> 2.9%、<code>open</code> 1.9%、<code>realpathSync</code> 1.9%、<code>existsSync</code> 1.8%</td></tr>
+  <tr><td>V8 解析／編譯 JS</td><td class="num">≈17%</td><td><code>compileSourceTextModule</code> 11.8%、<code>parse</code> 2.6%</td></tr>
+  <tr><td>DSH 自身邏輯</td><td class="num">19.5%</td><td>散在 <code>@deepseek-ai/*</code> 各處，無單一熱點</td></tr>
+  <tr><td>其餘 Node 模組機制</td><td class="num">≈24%</td><td>ESM loader job 建立、package.json 讀取、URL 轉換等</td></tr>
+</table>
+
+<h3>3.3 規模（來源機器實測）</h3>
+<table class="data">
+  <tr><th>項目</th><th>數量</th></tr>
+  <tr><td>全域安裝 <code>@deepseek-ai/dsh/node_modules</code> 底下檔案數</td><td class="num">63,666</td></tr>
+  <tr><td><code>~/.dsh/profiles/web/node_modules</code> 底下檔案數</td><td class="num">15,518</td></tr>
+  <tr><td>最長路徑</td><td class="num">100 字元（<code>LongPathsEnabled=1</code>，非長路徑問題）</td></tr>
+  <tr><td><code>profiles/node_modules/*</code> 的項目</td><td>全部是 <strong>junction</strong>，指回全域安裝的 <code>node_modules</code>（不佔空間）</td></tr>
+</table>
+
+<h3>3.4 已排除的環境因素（都實測過）</h3>
+<ul>
+  <li>沒有 <code>HTTP_PROXY</code>/<code>HTTPS_PROXY</code>/<code>NODE_PATH</code> 之類的變數。</li>
+  <li><code>%APPDATA%</code> 不是重新導向的資料夾（不是 reparse point），沒有漫遊設定檔、沒有網路磁碟（<code>net use</code> 空）。</li>
+  <li>只有一個 dsh 實例在跑，3080 沒有被舊殘留行程佔住；連接埠衝突會<strong>立即失敗</strong>，不會變慢。</li>
+  <li>啟動過程中<strong>完全沒有呼叫 pnpm／套件管理器</strong>（<code>dsh-app-boot</code> 內沒有任何 <code>child_process</code>），所以「等安裝」這個假設不成立。</li>
+  <li>CPU 滿載時跑在 2794 MHz（標稱 100%），<strong>沒有降頻</strong>，所以「電源計畫調成效能」不會有幫助。</li>
+  <li><code>NtfsDisable8dot3NameCreation=1</code>、<code>NtfsDisableLastAccessUpdate</code> 已關閉 last-access 更新（都是快設定，非問題來源）。</li>
+</ul>
+
+<h2 id="rules">4. 判讀規則（先分類，再查原因）</h2>
+<p>啟動完成後，看「CPU 時間 ÷ 實際耗時」。這個比值不需要 CPU 剖面，卻足以決定接下來往哪查：</p>
+<table class="data">
+  <tr><th>比值</th><th>代表</th><th>接下來查什麼</th></tr>
+  <tr>
+    <td class="num">≥ 90%</td>
+    <td><strong>CPU 密集</strong>：模組載入／編譯／metadata 解析在吃時間</td>
+    <td>外掛與檔案數量（第 5 節）、CPU 世代。不要查網路與防毒。</td>
+  </tr>
+  <tr>
+    <td class="num">50–90%</td>
+    <td>混合：有明顯的等待成分</td>
+    <td>先做 CPU 剖面找出等待點，再逐一對照外掛的啟動期 I/O。</td>
+  </tr>
+  <tr>
+    <td class="num">&lt; 50%</td>
+    <td><strong>在等待</strong>：I/O、防毒過濾驅動、網路逾時</td>
+    <td>外掛設定裡的 <code>baseURL</code>、<code>requestTimeoutMs</code>、registry／市集抓取；Defender 即時掃描；磁碟。</td>
+  </tr>
+</table>
+<div class="box ok">
+  <strong>為什麼這個指標可靠：</strong>它是「行程自己用掉多少 CPU」對「牆上時鐘」的比。若行程在等 kernel、等網路、等防毒回覆，CPU 時間會遠低於實際耗時；若全程在算，比值會接近 100% 甚至超過（V8 背景執行緒可讓它到 120% 以上）。
+</div>
+
+<h2 id="measure">5. 量測步驟（可直接貼上）</h2>
+
+<h3>5.1 先決定「誰來跑」</h3>
+<div class="box warn">
+  <strong>關鍵限制：從 DSH 的沙箱裡跑 <code>dsh web</code> 會失敗。</strong>每次啟動都會重寫 profile 的 <code>cordis.yml</code>，而 DSH 代理的檔案沙箱只允許寫 session workspace，於是會在 <code>prepareProfile</code> 階段直接丟
+  <code>EPERM: operation not permitted, open '…\profiles\web\cordis.yml'</code>，<strong>量不到真正的啟動時間</strong>。
+  <br><br>
+  兩個可行做法，<strong>優先選 (a)</strong>：
+  <ul>
+    <li><strong>(a) 請使用者在自己的 PowerShell／cmd 視窗執行</strong>（就是平常跑 <code>dsh web</code> 的那個視窗）。最忠實，也避開沙箱。</li>
+    <li><strong>(b) 代理自己跑</strong>：需要 <code>danger-full-access</code> 核准，且要接受它會改寫真實 profile 的 <code>cordis.yml</code>。（原文另擔心 <code>patchReload: live</code> 會觸發 live 重組——<strong>目標機覆核發現這個鍵在 rc.5 程式碼裡完全不存在</strong>，已是失效鍵，該風險不成立。）</li>
+  </ul>
+  <p><strong>目標機覆核補充：阻擋比上面寫的多三層。</strong>以下全部實測：</p>
+  <ul>
+    <li>連 <code>--dump-config</code> 也會死在同一個 <code>prepareProfile</code>：<code>dump-config → prepareProfile → writeFileSync → EPERM</code>。所以「只印設定、不改檔」這條路也不通。</li>
+    <li>連「spawn 一個要擷取輸出的子行程」都被拒：<code>&amp; pwsh -File .\measure-dsh-web.ps1</code> → <code>Program 'pwsh.exe' failed to run: 存取被拒。</code>；<code>ProcessStartInfo.RedirectStandardOutput</code> 同樣走不通。</li>
+    <li>因此 agent 內<strong>拿不到任何行程 CPU 時間</strong>：<code>Get-Process</code>、<code>tasklist</code>、<code>Get-CimInstance</code>、<code>Get-NetTCPConnection</code> 一律拒絕存取 → 附錄 B 的 <code>TotalProcessorTime</code> 這條路在 agent 內不可用。</li>
+    <li><code>New-Item -ItemType Junction</code> → <code>存取被拒</code>，所以第 9 節「鏡像 + junction」的做法在沙箱內也不可行。</li>
+  </ul>
+  <p>→ 結論不變，但更強：<strong>量測只能由使用者在自己的一般視窗執行</strong>；代理能做的只有「唯讀取證」與「隔離鏡像」，而後者的比值<strong>不可信</strong>（見 <a href="#pitfall">第 13 節</a>）。</p>
+</div>
+
+<h3>5.2 量測腳本（在一般 PowerShell 視窗執行，不需管理員）</h3>
+<p>存成 <code>measure-dsh-web.ps1</code> 後執行 <code>pwsh -File .\measure-dsh-web.ps1 -Runs 3</code>。它用另一個 port 起暫存實例量到第一行網址出現為止，然後把該行程殺掉，<strong>不會影響原本 3080 上在跑的實例</strong>。</p>
+<pre><code>param(
+  [int]$Runs = 3,
+  [int]$Port = 3099,
+  [string]$Profile = 'web'
+)
+$ErrorActionPreference = 'Stop'
+
+$bin = Join-Path (npm root -g) '@deepseek-ai\dsh\lib\bin.js'
+if (-not (Test-Path $bin)) { throw "找不到 dsh 的 bin.js：$bin" }
+$node = (Get-Command node).Source
+Write-Host "node   : $(&amp; $node -v)"
+Write-Host "dsh    : $(&amp; $node $bin -V)"
+Write-Host "bin    : $bin"
+Write-Host "profile: $Profile"
+Write-Host ''
+
+$results = @()
+for ($i = 1; $i -le $Runs; $i++) {
+  $p = $Port + $i - 1
+  $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = $node
+  $psi.Arguments = '"{0}" "{1}" --port {2} --no-open' -f $bin, $Profile, $p
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
+  $psi.UseShellExecute = $false
+  $psi.WorkingDirectory = (Get-Location).Path
+  $proc = [System.Diagnostics.Process]::Start($psi)
+
+  $outTask = $proc.StandardOutput.ReadLineAsync()
+  $errTask = $proc.StandardError.ReadLineAsync()
+  $urlMs = -1
+  $deadline = (Get-Date).AddSeconds(180)
+  while (-not $proc.HasExited -and (Get-Date) -lt $deadline) {
+    if ($outTask.IsCompleted) {
+      $line = $outTask.Result
+      if ($null -eq $line) { break }
+      if ($urlMs -lt 0 -and $line -match '://127\.0\.0\.1:\d+') { $urlMs = $sw.ElapsedMilliseconds; break }
+      $outTask = $proc.StandardOutput.ReadLineAsync()
+    }
+    Start-Sleep -Milliseconds 25
+  }
+
+  try { $proc.Refresh() } catch {}
+  $cpuMs = if ($proc.HasExited) { -1 } else { [int]$proc.TotalProcessorTime.TotalMilliseconds }
+  if (-not $proc.HasExited) { try { $proc.Kill($true) } catch {} }
+
+  if ($urlMs -lt 0) { Write-Host ("run {0}: 逾時，沒有看到網址列" -f $i) }
+  else {
+    Write-Host ("run {0}: {1,7} ms  (CPU {2} ms, CPU/wall {3:P0})" -f $i, $urlMs, $cpuMs, ($cpuMs / [Math]::Max($urlMs,1)))
+    $results += $urlMs
+  }
+}
+
+if ($results.Count -gt 0) {
+  $sorted = $results | Sort-Object
+  $median = if ($sorted.Count % 2 -eq 1) { $sorted[($sorted.Count - 1) / 2] } else { ($sorted[$sorted.Count / 2 - 1] + $sorted[$sorted.Count / 2]) / 2 }
+  Write-Host ''
+  Write-Host ("=== 中位數 {0} ms（{1:N1} 秒）  min {2} / max {3} ===" -f $median, ($median / 1000), $sorted[0], $sorted[-1])
+}</code></pre>
+<p><strong>注意</strong>：這個腳本只用到公開旗標 <code>--port</code>、<code>--no-open</code>，不碰 DSH 內部 API，因此 <strong>rc.2 與 rc.5 都可直接使用</strong>。</p>
+
+<h3>5.3 量完順手收集（純讀取，不需核准）</h3>
+<pre><code># 版本與 profile 清單
+node "$(npm root -g)\@deepseek-ai\dsh\lib\bin.js" -V
+Get-Content "$env:USERPROFILE\.dsh\profiles\web\package.json"
+
+# 檔案規模（跟附錄基線比）
+(Get-ChildItem "$(npm root -g)\@deepseek-ai\dsh\node_modules" -Recurse -File -EA SilentlyContinue | Measure-Object).Count
+(Get-ChildItem "$env:USERPROFILE\.dsh\profiles\web\node_modules" -Recurse -File -EA SilentlyContinue | Measure-Object).Count
+
+# 啟動紀錄：外掛載入 / 被跳過 / 未啟用
+Get-Content "$env:USERPROFILE\.dsh\dsh-web.log" -Tail 40</code></pre>
+
+<h3>5.4 （選配）要歸因到哪個外掛時</h3>
+<p>複製一份 profile 目錄到 workspace、把 <code>package.json</code> 的 <code>dsh.profile.bundles</code> 逐次刪減、每次都重量一次，就能算出每個 bundle 的邊際成本。來源機的做法是「只留 <code>@deepseek-ai/dsh-base</code> + <code>@deepseek-ai/dsh-web-app</code>」當對照組（得到 11.9 秒），這就是量到 +4 秒的方法。</p>
+
+<h2 id="rc5">6. 升級到 rc.5 後優先檢查項</h2>
+<div class="box bad">
+  <strong>目標機覆核：本節 6.1 與 6.2 在目標機<span class="tag todo">不適用</span></strong><br>
+  目標機<strong>完全沒有 <code>compatibility.json</code></strong>（整個 <code>~/.dsh</code> 遞迴搜尋 0 筆），也<strong>沒有</strong> <code>did not activate</code> 警告、<code>cordis.patch.yml</code> 裡也<strong>沒有</strong> <code>forge-tools</code> 條目。這兩項是<strong>來源機的歷史狀態</strong>，不是通用檢查項——照著查只會浪費時間。<br>
+  正確的順序是：<strong>先量 CPU/wall（第 5 節）</strong>；只有當日誌真的出現 <code>skipping</code>／<code>did not activate</code> 時才回來查本節。
+</div>
+<p>目標機是<strong>升級後才出問題</strong>，這一節應該排在效能量測之前。依可能性排序：<span class="tag no">此排序已被目標機推翻</span></p>
+
+<h3>6.1 peer 相容性重新檢查 → 外掛被 skip <span class="tag todo">目標機不適用</span></h3>
+<p>來源機的歷史紀錄顯示：全域重裝成 <code>0.2.0-rc.2</code> 時，多個外掛因 <code>peerDependencies</code> 指向舊版而被<strong>拒絕載入</strong>，當時是靠在 profile 的 <code>compatibility.json</code> 寫「精確版本豁免」才救回來，而豁免的鍵是 <code>名字@版本</code>、值是<strong>精確的 DSH 版本</strong>（例如 <code>["0.2.0-rc.2"]</code>）。</p>
+<div class="box warn">
+  豁免綁的是<strong>精確版本</strong>。升到 <code>0.2.1-rc.5</code> 之後，原本寫 <code>0.2.0-rc.2</code> 的豁免<strong>很可能不再匹配</strong> → 外掛被 skip 或改走別的路徑 → 啟動行為與載入的模組集合都會變。
+</div>
+<pre><code># 看目前有哪些豁免、是否還對得上現在的版本
+dsh plugin --profile web version-exemptions
+Get-Content "$env:USERPROFILE\.dsh\profiles\web\compatibility.json"
+Get-Content "$env:USERPROFILE\.dsh\dsh-web.log" -Tail 60 | Select-String -Pattern 'skipping|skip|incompat|did not activate'</code></pre>
+
+<h3>6.2 殘留的失效 patch 條目（「N entry did not activate」）<span class="tag todo">目標機不適用</span></h3>
+<p>來源機每次啟動都印 <code>dsh: warning: 1 entry did not activate</code>，原因是 <code>cordis.patch.yml</code> 裡有一條指向 <code>@maxhsu/dsh-forge</code> 的 <code>forge-tools</code> 條目，而該套件<strong>在任何 <code>node_modules</code> 根目錄都不存在</strong>。這種條目不會讓啟動變慢（它立刻失敗），但會<strong>掩蓋</strong>真正的外掛問題，也會在升級後混淆判斷。</p>
+<pre><code># 列出 patch 條目，逐一確認套件真的存在
+Get-Content "$env:USERPROFILE\.dsh\profiles\web\cordis.patch.yml"
+# 把每條的 name 拿去測：Test-Path "&lt;node_modules 根&gt;\&lt;name&gt;"</code></pre>
+
+<h3>6.3 <code>node_modules</code> 是否被重鏈（檔案數量暴增）</h3>
+<p>升級若動到依賴，pnpm 會重寫 <code>node_modules</code>；檔案數變多，第 3.2 節那 39% 的 metadata 成本會等比例上升。把量到的檔案數跟附錄 A 比對，而不是憑印象。</p>
+
+<h3>6.4 Node 版本是否跟著換了</h3>
+<p>來源機是 <code>v24.18.0</code>。若目標機升級時順便換了 Node 主版本，模組載入行為可能不同；請一併記錄，不要假設兩台一樣。</p>
+
+<h2 id="changes">7. 來源機器已做的變更（勿盲抄）</h2>
+<table class="data">
+  <tr><th>變更</th><th>內容</th><th>對速度的影響</th><th>目標機要不要做</th></tr>
+  <tr>
+    <td>移除失效 patch 條目</td>
+    <td>在 <code>~/.dsh/profiles/web/cordis.patch.yml</code> 移除 <code>forge-tools</code> 整段（含其 baseUrl 與一個明碼 token），留下 5 個條目：<code>ui-settings-general</code>、<code>ui-theme</code>、<code>pwsh-sandbox</code>、<code>llm-pi-ai</code>、<code>agent-default-model</code>。已用 <code>yaml</code> 套件重新解析驗證，且確認 5 個套件都解析得到。</td>
+    <td><strong>0</strong>（該條目本來就立刻失敗）</td>
+    <td><span class="tag no">先不要</span> 先確認該機是否<strong>也有</strong>這條、且套件是否真的不在。若套件存在就不能刪。</td>
+  </tr>
+  <tr>
+    <td>未做：砍 bundle</td>
+    <td>仍保留 8 個 bundle。</td>
+    <td>—</td>
+    <td><span class="tag todo">量完再決定</span> 這是唯一實測有效的加速手段（約 −4 秒）。</td>
+  </tr>
+</table>
+<div class="box bad">
+  <strong>不要</strong>把來源機的 <code>cordis.patch.yml</code> 整份複製到目標機。裡面有<strong>明碼 token</strong> 與三台內網 LLM 端點（<code><LAN-IP>/217/207:1234</code>）、forge 的 <code><LAN-IP>:3000</code>，那些是來源機的內網設定，與啟動速度無關，複製只會帶來新的失敗點與憑證外洩風險。
+</div>
+
+<h2 id="ruledout">8. 已證偽、不要浪費時間的方向</h2>
+<table class="data">
+  <tr><th>方向</th><th>實測結果</th><th>結論</th></tr>
+  <tr><td>Node 編譯快取（<code>NODE_COMPILE_CACHE</code>）</td><td>產生 5,145 個快取檔、17.6 MB；有快取 16.1／16.3 秒，無快取 12.5／17.3 秒</td><td><span class="tag no">無效</span> 因為編譯只佔 17%，且差異全在雜訊內</td></tr>
+  <tr><td>防毒／磁碟造成的 I/O 等待</td><td>CPU 時間 13.3 秒 &gt; 實際 12.4 秒（比值 108%）</td><td><span class="tag no">不是</span> 行程沒有在等 I/O，因此把 <code>%APPDATA%\npm</code>、<code>~/.dsh</code> 加進防毒排除<strong>不會</strong>有幫助</td></tr>
+  <tr><td>網路／DNS／proxy 逾時</td><td>沒有任何 proxy 變數；比值 &gt;100% 表示無等待</td><td><span class="tag no">不是</span>（除非目標機比值 &lt; 50%，那就要改查這條）</td></tr>
+  <tr><td>連接埠被佔用／重試</td><td>只有一個實例；listen 失敗是 <strong>reject 立即報錯</strong>，不會重試等待</td><td><span class="tag no">不是</span></td></tr>
+  <tr><td>啟動時跑 pnpm／套件安裝</td><td><code>dsh-app-boot</code> 內無任何 <code>child_process</code>；boot 純 JS 載入</td><td><span class="tag no">不是</span></td></tr>
+  <tr><td>電源計畫降頻</td><td>滿載時 <code>% Processor Performance</code> = 100.8%，頻率 2794 MHz</td><td><span class="tag no">無效</span></td></tr>
+  <tr><td>長路徑／8.3 短檔名</td><td>最長路徑 100 字元；<code>LongPathsEnabled=1</code>；8dot3 已停用</td><td><span class="tag no">不是</span></td></tr>
+  <tr><td>掃描歷史 session 造成啟動變慢</td><td>session 目錄只有 16 個檔、4.6 MB</td><td><span class="tag no">不是</span>（但若目標機 session 目錄很大，值得再看一次）</td></tr>
+</table>
+
+<h2 id="safety">9. 安全注意（會誤刪真實檔案）</h2>
+<div class="box bad">
+  <h3>junction 陷阱</h3>
+  <p>來源機用「鏡像 <code>DSH_HOME</code> + junction 指向真實 <code>node_modules</code>」的方式做隔離量測。若你也要這樣做，<strong>刪除時必須先個別移除 junction</strong>：</p>
+  <pre><code># 正確：只刪連結本身
+cmd /c rmdir "&lt;鏡像目錄&gt;\node_modules"
+
+# 危險：Remove-Item -Recurse 可能沿著 junction 走進去，
+# 把真實的 node_modules 內容一起刪掉
+Remove-Item "&lt;鏡像目錄&gt;" -Recurse -Force   # 先確認 junction 已全數移除再執行</code></pre>
+  <p>來源機的做法是：先對每個 junction 執行 <code>cmd /c rmdir</code>，再確認真實路徑（<code>…\.dsh\profiles\web\node_modules\dshmarket\package.json</code> 等）仍然存在，最後才刪鏡像目錄。</p>
+</div>
+<ul>
+  <li><strong>建立 junction 需要超出 workspace 的權限</strong>（來源機在 workspace-write 下被拒 <code>存取被拒</code>，需 <code>danger-full-access</code>）。</li>
+  <li><strong>不要</strong>在原實例還在跑、且 profile 設了 <code>patchReload: live</code> 時去改 <code>cordis.patch.yml</code>——可能觸發 live 重組。來源機改檔前先備份到 workspace，改完只做了靜態驗證（YAML 解析 + 套件存在性），沒有在原實例上跑第二次 boot 去驗證，就是為了避免干擾。</li>
+  <li><code>~/.dsh</code> 內有 <code>.credentials.yaml</code>；量測用的鏡像 <code>DSH_HOME</code> <strong>不要</strong>順手複製憑證檔。來源機實測：缺憑證檔不影響量到「印出網址」的時間點。</li>
+</ul>
+
+<h2 id="report">10. 回報格式</h2>
+<p>量完後請用這個區塊回報，方便與來源機基線逐項對比：</p>
+<pre><code>## 目標機量測結果
+- DSH 版本：0.2.1-rc.5        Node：v?
+- OS / CPU：Windows 10 (build ?) / ?
+- 中位數啟動：? ms（逐次：? / ? / ?）
+- CPU/wall：?%                → 分類：CPU 密集 / 混合 / 在等待
+- bundle 數：?（清單：?）
+- 檔案數：全域 node_modules ? / profile node_modules ?
+- dsh-web.log 是否有 skipping / did not activate：?
+- compatibility.json 豁免是否仍匹配 rc.5：?
+- 與來源機基線差異的判斷：?
+- 建議動作（含預期節省秒數）：?</code></pre>
+
+<h2 id="target">11. 目標機實測結果（2026-10-30）<span class="tag done">新增</span></h2>
+<p>以下直接填回第 10 節的回報格式，方便與來源機基線逐項對比。</p>
+<pre><code>## 目標機量測結果
+- DSH 版本：0.2.1-rc.5        Node：v24.21.0（npm 11.19.0）
+- OS / CPU：Windows 10 Enterprise LTSC 2019 (17763.9376) / Intel Core 2 Quad Q9500 @2.83GHz（4 執行緒，2008）
+- 中位數啟動：21645 ms（逐次：21645 / 21357 / 22453）
+- CPU/wall：106–109%          → 分類：CPU 密集 ✅
+- bundle 數：10（2 官方 + 8 第三方）
+- 檔案數：全域 node_modules 63689 / profile node_modules 16582
+- dsh-web.log 是否有 skipping / did not activate：僅有 9 筆 0.2.0-rc.2 時期的 @maxhsu/dsh-forge skip，近期沒有
+- compatibility.json 豁免是否仍匹配 rc.5：該檔不存在，無豁免可談
+- 與來源機基線差異的判斷：同因（CPU 密集），幅度差由 CPU 世代解釋
+- 建議動作（含預期節省秒數）：砍 bundle 10→2，預期 −5~6 秒（≈25%）</code></pre>
+
+<h3>11.1 逐次量測（使用者自己的 pwsh 7.4.6，非沙箱）</h3>
+<p>指令：<code>.\measure-dsh-web.ps1 -Runs 3 -Port 3099</code>（第 5.2 節的腳本，<strong>未經修改</strong>即可用於 rc.5）</p>
+<table class="data">
+  <tr><th>#</th><th>time-to-URL</th><th>CPU</th><th>CPU/wall</th></tr>
+  <tr><td>1</td><td class="num">21645 ms</td><td class="num">23375 ms</td><td class="num">108%</td></tr>
+  <tr><td>2</td><td class="num">21357 ms</td><td class="num">23312 ms</td><td class="num">109%</td></tr>
+  <tr><td>3</td><td class="num">22453 ms</td><td class="num">23750 ms</td><td class="num">106%</td></tr>
+  <tr><td><strong>中位數</strong></td><td class="num"><strong>21645 ms（21.6 s）</strong></td><td class="num">23312 ms</td><td class="num"><strong>≈108%</strong></td></tr>
+</table>
+<p>CPU 時間<strong>大於</strong>實際耗時，代表行程全程在算（V8 背景執行緒讓比值可以超過 100%），<strong>沒有在等 I/O、等網路、等防毒</strong>。這是本文件第 4 節判讀規則的「≥90% = CPU 密集」分支，與來源機一致。</p>
+
+<h3>11.2 規模（目標機實測）</h3>
+<table class="data">
+  <tr><th>項目</th><th>目標機</th><th>來源機</th><th>差</th></tr>
+  <tr><td>全域安裝 <code>node_modules</code> 檔案數</td><td class="num">63,689</td><td class="num">63,666</td><td class="num">+23</td></tr>
+  <tr><td><code>~/.dsh/profiles/web/node_modules</code> 檔案數</td><td class="num">16,582</td><td class="num">15,518</td><td class="num">+1,064（+6.9%）</td></tr>
+  <tr><td>第三方 bundle 數</td><td class="num">8</td><td class="num">7</td><td class="num">+1</td></tr>
+  <tr><td>profile <code>node_modules</code> 連結型態</td><td>真實目錄（hoisted linker）</td><td>junction</td><td>—</td></tr>
+</table>
+<p>目標機多出的第三方 bundle 是 <code>dsh-raw-html</code>：</p>
+<pre><code>"dsh": { "profile": { "bundles": [
+  "@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app",
+  "dsh-multi-lang-ui", "dshmarket", "dsh-cost-meter", "dsh-power-xc",
+  "dsh-watcher", "dsh-better-sidebar", "@goodandready/dsh-gitea",
+  "dsh-raw-html"        // ← 來源機沒有這個
+] } }</code></pre>
+
+<h3>11.3 旁證：重啟助手的時間戳（本機、沙箱外、非推估）</h3>
+<p><code>~/.dsh/restart-helper-*.log</code> 由 dsh-power-xc 寫入，含 ISO 時間戳，可用來交叉驗證：</p>
+<table class="data">
+  <tr><th>spawn</th><th>外掛載入（<code>loaded pid=…</code>）</th><th>restart confirmed</th><th>spawn → confirmed</th></tr>
+  <tr><td>02:53:25.232</td><td>02:53:37.212（<strong>+11.98 s</strong>）</td><td>02:53:48.088</td><td class="num">22.86 s</td></tr>
+  <tr><td>02:01:40.830</td><td>02:01:55.474（<strong>+14.64 s</strong>）</td><td>02:02:08.019</td><td class="num">27.19 s</td></tr>
+</table>
+<p><code>restart confirmed</code> 發生在「印出網址之後」，所以 22.9 / 27.2 秒是<strong>上界</strong>，21.6 秒是實測值——兩者吻合，沒有矛盾。此方法可作為「沒有跑量測腳本時」的旁證。</p>
+
+<h3>11.4 目標機已排除的環境因素</h3>
+<ul>
+  <li><strong>防毒不是原因</strong>：<code>WinDefend</code> 服務為 <strong>Stopped</strong>、<code>StartType=Manual</code>、<code>DisableRealtimeMonitoring=0</code>；Uninstall 清單中沒有第三方 AV。</li>
+  <li><strong>不是 HDD</strong>：<code>C:</code> 對應 <code>INTEL SSDSC2KB480G8</code>（SATA SSD，447 GiB）。機上另有兩顆 HDD（<code>ST3320820SCE</code>、<code>ST3500418AS</code>），但不在 <code>C:</code>。</li>
+  <li>沒有 <code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code> / <code>NODE_PATH</code> / <code>NODE_COMPILE_CACHE</code>。</li>
+  <li>以上三點與 106–109% 的比值互相印證：排除它們的<strong>理由</strong>（比值 &gt;100% 表示無等待）在目標機成立。</li>
+</ul>
+
+<h2 id="errata">12. 覆核勘誤：與目標機實況不符的 10 處<span class="tag done">新增</span></h2>
+<table class="data">
+  <tr><th>#</th><th>本文件原文</th><th>目標機實況</th><th>影響</th></tr>
+  <tr>
+    <td>1</td><td>§1／§3.1「8 個 bundle（2 官方 + 7 第三方）」</td>
+    <td>原文<strong>自相矛盾</strong>（2+7=9，附錄 A 也列 9 條）。目標機實為 <strong>10 條</strong>（2 官方 + 8 第三方），多 <code>dsh-raw-html</code></td>
+    <td>基線比對會對錯，也是多出的成本來源</td>
+  </tr>
+  <tr>
+    <td>2</td><td>§6.1 查 <code>compatibility.json</code> 的精確版本豁免是否失效</td>
+    <td>目標機<strong>沒有這個檔</strong>（整份 <code>~/.dsh</code> 遞迴搜尋 0 筆）</td>
+    <td>整節不適用；<code>dsh plugin version-exemptions</code> 會是空的</td>
+  </tr>
+  <tr>
+    <td>3</td><td>§6.2「每次啟動都印 <code>1 entry did not activate</code>」</td>
+    <td>目標機日誌<strong>沒有這行</strong>，patch 檔也<strong>沒有</strong> <code>forge-tools</code> 條目</td>
+    <td>不適用（該問題來源機已自行清除）</td>
+  </tr>
+  <tr>
+    <td>4</td><td>§7 <code>cordis.patch.yml</code> 有 <strong>5</strong> 個條目（含 <code>ui-theme</code>）</td>
+    <td>目標機 <strong>4</strong> 條：<code>pwsh-sandbox</code>、<code>ui-settings-general</code>、<code>llm-pi-ai</code>、<code>agent-default-model</code>，<strong>無</strong> <code>ui-theme</code></td>
+    <td>無法逐條對照</td>
+  </tr>
+  <tr>
+    <td>5</td><td>§7 紅框「裡面有<strong>明碼 token</strong>」</td>
+    <td>目標機改用 <code>apiKeyEnv</code>，<strong>沒有 token</strong>；但仍有 5 個內網 LLM 端點</td>
+    <td>「不要複製」仍成立，但理由不同</td>
+  </tr>
+  <tr>
+    <td>6</td><td>Meta／§3.4 記載 Node <code>v24.18.0</code></td>
+    <td>目標機 <code>v24.21.0</code>（npm 11.19.0）</td>
+    <td>主版本相同，可接受</td>
+  </tr>
+  <tr>
+    <td>7</td><td>Windows 10 21H2（19044）</td>
+    <td>Windows 10 Enterprise <strong>LTSC 2019（17763.9376）</strong></td>
+    <td>核心版本差一個世代（1809 vs 21H2）</td>
+  </tr>
+  <tr>
+    <td>8</td><td>§3.3「<code>profiles/&lt;name&gt;/node_modules</code> 的項目全部是 junction」</td>
+    <td>目標機 <code>profiles/web/node_modules</code> 內是<strong>真實目錄</strong>（hoisted linker）；junction 在<strong>上一層</strong> <code>profiles/node_modules</code></td>
+    <td>位置描述有誤，但「不佔空間」的結論仍對</td>
+  </tr>
+  <tr>
+    <td>9</td><td>§7「profile 開了 <code>patchReload: live</code> 可能觸發 live 重組」</td>
+    <td><code>patchReload</code> 這個鍵在 rc.5 程式碼裡<strong>完全找不到</strong>（含 <code>.pnpm</code>）→ 已是失效鍵</td>
+    <td>此風險警告在 rc.5 上不成立</td>
+  </tr>
+  <tr>
+    <td>10</td><td>（隱含）可用日誌推估耗時</td>
+    <td><code>dsh-web.log</code> <strong>完全沒有時間戳</strong>——38 次啟動紀錄全都沒有</td>
+    <td>日誌只能看 <code>skipping</code> 之類的字樣，<strong>不能</strong>用來算耗時</td>
+  </tr>
+</table>
+<div class="box warn">
+  <strong>另外一個小陷阱：</strong>目標機的 <code>profile/node_modules/@maxhsu</code> 是個<strong>空目錄</strong>——<code>dsh-forge</code> 移除後留下的殘骸。它不會拖慢啟動，但會讓「這個套件到底在不在」的判斷失準。看到目錄存在就假設套件存在，是錯的。
+</div>
+
+<h2 id="pitfall">13. 方法論陷阱：沙箱內量到的比值不可用<span class="tag done">新增</span></h2>
+<div class="box bad">
+  <h3>我踩過的坑（請不要重犯）</h3>
+  <p>覆核過程中，我先在 agent 沙箱內用「workspace 鏡像 <code>DSH_HOME</code> + 只留 2 個官方 bundle」量測，得到 wall <span class="k">37–48 秒</span>、CPU/wall <span class="k">55–70%</span>，據此一度判斷「目標機是<strong>混合</strong>、有明顯等待成分，因此第 8 節排除磁碟／防毒的結論不成立」。</p>
+  <p><strong>這個判斷是錯的。</strong>同一個真實對象在沙箱外只有 <span class="k">21.6 秒</span>、<span class="k">108%</span>。</p>
+  <p>兩個污染源同時作用：</p>
+  <ul>
+    <li>鏡像 profile <strong>沒有 <code>node_modules</code></strong> → 走「安裝範圍解析」路徑，做真實 profile 不會做的 I/O。</li>
+    <li>子行程在 <strong>DSH 沙箱</strong>內 → 每個 open 多一層 ACL 檢查，wall 被拉長而 CPU 不漲，比值於是被系統性壓低。</li>
+  </ul>
+  <p><strong>規則：CPU/wall 這個比值只有在沙箱外量才有意義。</strong>沙箱內的能量（wall、比值）只能當「有跑起來」的證據，不能拿來分類。</p>
+</div>
+<p>若要取證（不是定論），可重用的繞過方式是：<code>DSH_HOME</code> 指向 workspace 內的鏡像、子行程 stdout <strong>重導向到檔案</strong>（不要用管線）、子行程內用 <code>NODE_OPTIONS=--import</code> 預載量 <code>process.cpuUsage()</code>。這樣完全不必碰真實 profile，但結論仍須用沙箱外的量測確認。</p>
+
+<h2 id="open">14. 仍未回答的問題與後續<span class="tag done">新增</span></h2>
+<div class="box warn">
+  <h3>本文件量的是「絕對值」，不是「退化幅度」</h3>
+  <p>第 3 節與第 11 節都只證明「rc.5 在這台機器上很慢、而且是 CPU 造成的」。但原始抱怨是<strong>「升級到 0.2.1 後比 0.2.0 慢很多」</strong>——這需要 <strong>v0.2.0 vs v0.2.1 的同機 A/B</strong>，本文件從頭到尾<strong>沒有做</strong>。</p>
+  <p>做法很明確：目標機的 npm cache 仍留有 <code>dsh-0.2.0</code> 的 tarball，可離線裝到<strong>獨立 prefix</strong>，兩個版本走<strong>同一個鏡像 <code>DSH_HOME</code></strong>、用同一支腳本量。兩版污染因子相同，<strong>差值可信</strong>。這一步才會回答「0.2.1 是不是真的比較慢、慢多少」。</p>
+</div>
+<h3>14.1 可操作的槓桿（依效果排序）</h3>
+<ol class="steps">
+  <li><strong>砍 bundle</strong>：10 條 → 2 條官方。換算基準：來源機 9 條 16.1 s、2 條 11.9 s，差 4.2 s／7 個第三方 ≈ <strong>0.6 s／個</strong>。目標機 CPU 更弱，預期 <strong>−5~6 秒（≈25%）</strong>。<br><span class="tag todo">注意</span> 這是「回到 ~16 秒」，<strong>不是</strong>「回到 v0.2.0 的速度」——兩件事不要混為一談。</li>
+  <li><strong>確認退化幅度</strong>：做 14 節開頭那個 A/B。若 0.2.0 明顯更快，那就是上游要修的問題，砍 bundle 只是止痛。</li>
+  <li><strong>不要做（目標機已證偽）</strong>：加防毒排除、把 <code>%APPDATA%\npm</code> 搬到別的磁碟、改電源計畫、開 <code>NODE_COMPILE_CACHE</code>。理由都一樣：比值 &gt;100%，行程沒有在等。</li>
+</ol>
+<h3>14.2 硬體現實</h3>
+<p>目標機是 <strong>Core 2 Quad Q9500（2008，4 執行緒）</strong>，來源機是 <strong>i7-4900MQ（2013，4C/8T）</strong>，單核約差 1.8–2 倍。<strong>23.3 秒的 CPU 時間就是這顆 CPU 的地板</strong>；在不砍外掛的前提下，21.6 秒已經很接近該硬體的下限。</p>
+
+<h2 id="appendix">附錄 A：來源機 profile 清單</h2>
+<pre><code>{
+  "name": "dsh-profile-web",
+  "private": true,
+  "dependencies": {
+    "@goodandready/dsh-gitea": "0.7.39",
+    "dsh-better-sidebar": "0.26.1",
+    "dsh-cost-meter": "1.9.31",
+    "dsh-multi-lang-ui": "github:asd13006/dsh-multi-lang-ui#e71fa6997a3b7bcaa2ff5a23fe5102faa6e69e17",
+    "dsh-power-xc": "0.1.6",
+    "dsh-watcher": "^0.8.0",
+    "dshmarket": "1.69.0"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-web-app",
+        "dsh-better-sidebar",
+        "dsh-cost-meter",
+        "dsh-multi-lang-ui",
+        "dsh-power-xc",
+        "dshmarket",
+        "dsh-watcher",
+        "@goodandready/dsh-gitea"
+      ],
+      "patchReload": "live"
+    }
+  }
+}</code></pre>
+<p>第三方 bundle 共 7 個；量測時「標準 profile」只保留前兩個官方 bundle，其餘移除且不套用使用者 patch 層。</p>
+
+<h2>附錄 B：量測方法與其限制</h2>
+<ul>
+  <li>時間戳的取得方式：以 <code>System.Diagnostics.Process</code> 啟動 <code>node &lt;bin.js&gt; &lt;profile&gt; --port &lt;n&gt; --no-open</code>，用非阻塞的 <code>ReadLineAsync()</code> 逐行取輸出（<strong>不要</strong>用同步 <code>ReadLine()</code>：子行程沉默時會整個卡死，來源機第一次嘗試就踩到這個坑），取第一個符合 <code>://127.0.0.1:\d+</code> 的行。</li>
+  <li><code>TotalProcessorTime</code> 必須在 <code>Refresh()</code> 之後、行程被殺之前讀。</li>
+  <li>CPU 剖面：<code>node --cpu-prof --cpu-prof-dir=… --cpu-prof-name=…</code>，但 profile 只在<strong>正常結束</strong>時寫出；直接 <code>Kill()</code> 不會產生檔案。來源機的做法是寫一個 <code>entry.mjs</code>，設好 <code>process.argv</code> 後 <code>import</code> CLI 的 <code>runCli</code>，等它回傳就 <code>process.exit(0)</code>。</li>
+  <li>雜訊很大（同一設定可差 6 秒），<strong>至少量 3 次取中位數</strong>，不要用單次數字下結論。</li>
+</ul>
+
+<h2>附錄 C：原始量測數據</h2>
+<table class="data">
+  <tr><th>#</th><th>Profile</th><th>time-to-URL (ms)</th><th>CPU (ms)</th><th>CPU/wall</th><th>備註</th></tr>
+  <tr><td>1</td><td>web（8 bundle）</td><td class="num">18920</td><td class="num">—</td><td class="num">—</td><td>首次量測，磁碟偏冷</td></tr>
+  <tr><td>2</td><td>web</td><td class="num">16078</td><td class="num">—</td><td class="num">—</td><td>暖機後</td></tr>
+  <tr><td>3</td><td>web</td><td class="num">12726</td><td class="num">15594</td><td class="num">123%</td><td>加量 CPU 時間</td></tr>
+  <tr><td>4</td><td>stock（2 bundle）</td><td class="num">9716</td><td class="num">—</td><td class="num">—</td><td>對照組</td></tr>
+  <tr><td>5</td><td>stock</td><td class="num">11241</td><td class="num">—</td><td class="num">—</td><td>暖機後沒有變快</td></tr>
+  <tr><td>6</td><td>stock</td><td class="num">11929</td><td class="num">14734</td><td class="num">124%</td><td>CPU &gt; 實際耗時</td></tr>
+  <tr><td>7</td><td>stock + 編譯快取（populate）</td><td class="num">13355</td><td class="num">15812</td><td class="num">118%</td><td>—</td></tr>
+  <tr><td>8</td><td>stock + 編譯快取（warm）</td><td class="num">12019</td><td class="num">15125</td><td class="num">126%</td><td>無改善</td></tr>
+  <tr><td>9</td><td>web + 編譯快取（無／populate／warm）</td><td class="num">17345 / 12462 / 12156 / 16084 / 16308</td><td class="num">—</td><td class="num">—</td><td>全部落在雜訊內</td></tr>
+  <tr><td>10</td><td>web（腳本最終驗證）</td><td class="num">12375</td><td class="num">13312</td><td class="num">108%</td><td>腳本與手動結果一致</td></tr>
+  <tr><td>11–13</td><td><strong>目標機</strong> web（10 條 bundle）</td><td class="num">21645 / 21357 / 22453</td><td class="num">23375 / 23312 / 23750</td><td class="num">108 / 109 / 106%</td><td>中位數 21645 ms。使用者自己的 pwsh 7.4.6、<strong>非沙箱</strong>——這是唯一可信的一組</td></tr>
+  <tr><td>—</td><td><strong>目標機</strong> 沙箱內鏡像 stock（2 條官方 bundle）</td><td class="num">37286 / 41134 / 44911 / 47707</td><td class="num">25906–26390</td><td class="num">55–70%</td><td><span class="tag no">作廢</span> 沙箱 + 鏡像雙重污染，導致誤判，見第 13 節</td></tr>
+</table>
+
+<footer>
+  <p>Handoff 產生於 2026-10-30，來源 session：<code>dsh-selfmaintenance</code>。本文件為單檔 HTML，無外部資源，可離線開啟或列印。</p>
+  <p><strong>2026-10-30 覆核更新</strong>：目標機（Windows 10 LTSC 2019 / Core 2 Quad Q9500 / DSH 0.2.1-rc.5）已完成重測與逐條覆核。新增第 11–14 節（實測結果、10 處勘誤、方法論陷阱、未答問題），並在 §1／§2／§3.1／§5.1／§6 就地標註被推翻或不再適用的段落。</p>
+  <p>原則提醒：<strong>先量、後改；量不到比值就不要猜原因。</strong>補充：<strong>比值只在沙箱外量才算數</strong>（第 13 節）。</p>
+</footer>
+
+</main>
+</body>
+</html>

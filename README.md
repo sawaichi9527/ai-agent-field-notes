@@ -1,0 +1,54 @@
+# ai-agent-field-notes
+
+Field notes on AI coding agents — **DSH, opencode, and whatever comes next** — across **Windows and Ubuntu**.
+
+These are not opinions or tutorials. Each entry is a case that was actually measured with a
+reproducible probe, including the hypotheses that **failed** and why.
+
+## Why this repo exists
+
+Debugging an AI agent CLI is a different problem from debugging an app:
+
+- the interesting parts are **module loading**, **plugin graphs**, and **subprocess spawning**
+- symptoms are often **timing-dependent** and belong to no single component
+- the agent itself is the wrong observer — it runs under the very sandbox that distorts the measurement
+
+So the value here is not "the answer" but **the method that gets you the answer**, plus enough
+evidence that you can tell a real root cause from a coincidence.
+
+## Symptom index
+
+| Symptom | Tool | OS | Root cause | Write-up |
+|---|---|---|---|---|
+| Startup takes 20+ s, window blank the whole time | DSH | Windows 10 | CPU-bound module loading; cost scales with plugin bundle count | [case](cases/2026-10-30-dsh-slow-startup-win/) · [playbook](playbooks/0001-measure-cpu-vs-wall.md) |
+| A console window flashes every ~4 s and typing in the browser loses characters | DSH + `@goodandready/dsh-gitea` | Windows 10 | `git rev-parse` spawned from a 4 s status poll without `windowsHide` | [case](cases/2026-10-30-dsh-console-flash-win/) · [playbook](playbooks/0003-catch-short-lived-windows.md) |
+
+## Playbooks (the reusable part)
+
+These are tool-agnostic. They apply to any agent CLI on any OS unless noted.
+
+1. [Measure CPU-vs-wall before anything else](playbooks/0001-measure-cpu-vs-wall.md) — one ratio splits "busy" from "waiting"
+2. [Sandbox measurements lie](playbooks/0002-sandbox-measurements-lie.md) — never classify from inside the agent's sandbox
+3. [Catch short-lived windows when process polling fails](playbooks/0003-catch-short-lived-windows.md)
+4. [Separate causes that share the same symptom](playbooks/0004-separate-correlated-causes.md)
+5. [On Windows, stdio decides whether a console appears — not `windowsHide`](playbooks/0005-windows-console-window-rules.md)
+
+## Layout
+
+```
+cases/      one directory per investigated symptom (evidence + write-up)
+playbooks/  reusable method, one file per idea
+tools/      probes, split by platform
+docs/       longer methodology notes
+handoff.md  current state: what is settled, what is still open
+SANITIZE.md rules applied before publishing anything here
+```
+
+## Contributing / reusing
+
+Most of these probes are single-file and dependency-free by design; copy them, adapt the
+paths, and keep the interpretation rules intact — the interpretation is the part that took
+the longest to get right.
+
+If you find a case where a rule below fails, that is the most interesting kind of issue:
+open one with the raw numbers rather than the conclusion.

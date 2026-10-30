@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>覆核：dsh web 重啟後的 DOS 閃爍與主控台消失（Windows 10）</title>
+<style>
+  :root{
+    --fg:#1c2024; --muted:#5b6672; --bg:#ffffff; --panel:#f6f8fa;
+    --line:#d8dee4; --accent:#0b6b6b; --warn:#8a4b00; --warnbg:#fff6e8;
+    --ok:#186a3b; --okbg:#eefaf1; --bad:#8b1e1e; --badbg:#fdeeee;
+    --code:#23292f; --codefg:#e6edf3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --fg:#e6edf3; --muted:#9aa7b4; --bg:#0f1419; --panel:#161c23;
+      --line:#2a323b; --accent:#5fd0c8; --warn:#f0b46b; --warnbg:#2a2013;
+      --ok:#7ddba0; --okbg:#12241a; --bad:#f08a8a; --badbg:#2a1414;
+      --code:#0b0f14; --codefg:#d7e2ec;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:32px 20px 80px; background:var(--bg); color:var(--fg);
+    font:16px/1.7 "Segoe UI","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;
+  }
+  main{max-width:960px;margin:0 auto}
+  h1{font-size:1.8rem;line-height:1.32;margin:0 0 6px}
+  h2{font-size:1.22rem;margin:2.4em 0 .7em;padding-bottom:.3em;border-bottom:2px solid var(--line)}
+  h3{font-size:1.02rem;margin:1.6em 0 .5em}
+  p,li{margin:.5em 0}
+  .sub{color:var(--muted);margin:0 0 22px}
+  .meta{width:100%;border-collapse:collapse;margin:18px 0 26px;font-size:.93rem}
+  .meta th,.meta td{border:1px solid var(--line);padding:7px 11px;text-align:left;vertical-align:top}
+  .meta th{background:var(--panel);width:11em;font-weight:600;white-space:nowrap}
+  table.data{width:100%;border-collapse:collapse;margin:14px 0;font-size:.92rem}
+  table.data th,table.data td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  table.data th{background:var(--panel);font-weight:600}
+  table.data td.num{text-align:right;font-variant-numeric:tabular-nums}
+  code{font-family:"Cascadia Mono",Consolas,ui-monospace,monospace;font-size:.88em;
+       background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  pre{background:var(--code);color:var(--codefg);padding:14px 16px;border-radius:8px;
+      overflow-x:auto;font-size:.84rem;line-height:1.55}
+  pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
+  .box{border-left:5px solid var(--accent);background:var(--panel);
+       padding:12px 16px;border-radius:0 8px 8px 0;margin:18px 0}
+  .box.warn{border-color:var(--warn);background:var(--warnbg)}
+  .box.ok{border-color:var(--ok);background:var(--okbg)}
+  .box.bad{border-color:var(--bad);background:var(--badbg)}
+  .box h3{margin-top:0}
+  .tag{display:inline-block;font-size:.76rem;font-weight:700;padding:2px 8px;border-radius:999px;
+       border:1px solid currentColor;vertical-align:2px}
+  .tag.yes{color:var(--ok)} .tag.no{color:var(--bad)} .tag.maybe{color:var(--warn)}
+  .tag.dead{color:var(--muted)}
+  ol.steps{padding-left:1.4em} ol.steps>li{margin:.7em 0}
+  ul.check{list-style:none;padding-left:0}
+  ul.check>li{padding-left:1.9em;position:relative;margin:.55em 0}
+  ul.check>li::before{content:"☐";position:absolute;left:.2em;top:-.05em;color:var(--muted)}
+  .toc{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 20px;font-size:.93rem}
+  .toc ol{margin:.3em 0;padding-left:1.3em}
+  .toc a{color:var(--accent);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .flow{display:grid;gap:8px;margin:14px 0}
+  .flow div{border:1px solid var(--line);border-radius:8px;padding:9px 13px;background:var(--panel);font-size:.93rem}
+  .flow div b{color:var(--accent)}
+  .strike{text-decoration:line-through;color:var(--muted)}
+  footer{margin-top:56px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:.86rem}
+</style>
+</head>
+<body>
+<main>
+
+<h1>覆核：<code>dsh web</code> 經外掛重啟後的「DOS 閃一下」— <span class="tag no">原始假設不成立</span></h1>
+<p class="sub">本文件原先記錄「閃爍＝<code>open</code> 缺 <code>windowsHide</code>」的因果鏈。2026-10-30 於目標機完成實測後，該假設<strong>被否證</strong>：鏈條上兩個 spawn 都不會產生 console。本文保留原假設的分析，但把結論、責任歸屬與 issue 草稿全部作廢。</p>
+
+<div class="box bad">
+  <h3>關於 <code>open</code> 與 <code>dsh-web-app</code>：不要回報，它們無罪</h3>
+  <p>在<strong>已驗證可建立 console、且無檔案沙箱</strong>的環境下，逐 hop 實測 <code>has=False visible=False attached=0</code>——包含「完全不帶 <code>windowsHide</code>」的對照組。也就是說，<strong>在這條鏈上缺 <code>windowsHide</code> 不會導致閃爍</strong>；決定 console 是否成立的是<strong>子行程有沒有拿到有效的 stdio 控制代碼</strong>，而這條鏈每個 hop 都把 stdio 重導或忽略了。</p>
+  <p>因此：<strong>第 10 節那兩份針對 <code>open</code>／<code>dsh-power-xc</code> 的 issue 草稿請勿送出</strong>；第 9 節的責任歸屬作廢。<strong>但要回報的對象換人了</strong>——見第 13、14 節。</p>
+</div>
+
+<div class="box ok">
+  <h3>最終結論：真因是 <code>@goodandready/dsh-gitea</code> 每 4 秒 spawn <code>git</code> 時缺少 <code>windowsHide</code> <span class="tag yes">已修復並驗證</span></h3>
+  <p>2026-10-30 20:30：在 <code>git-local.js</code> 的兩處 <code>exec()</code> 選項補上 <code>windowsHide: true</code> 後，<strong>連續重開三次都沒有再閃</strong>。</p>
+  <p>完整因果鏈、證據與修法見 <a href="#rootcause">第 13 節</a>；可直接送出的 issue 草稿見 <a href="#newdraft">第 14 節</a>。</p>
+  <p style="margin:.6em 0 0;color:var(--muted)">本文前半（第 3–10 節）記錄的是<strong>被否證的假設</strong>：<code>open</code>／<code>dsh-web-app</code> 的 browser handoff 鏈<strong>確實不會</strong>產生 console（四組實驗＋對照組可證）。真正的元凶在完全不同的地方。</p>
+</div>
+
+<table class="meta">
+  <tr><th>建立日期</th><td>2026-10-30（Asia/Taipei）</td></tr>
+  <tr><th>最後更新</th><td>2026-10-30（目標機覆核：假設否證，結論改寫）</td></tr>
+  <tr><th>環境</th><td>Windows 10 Enterprise LTSC 2019（17763.9376）、Node v24.21.0、<code>@deepseek-ai/dsh@0.2.1-rc.5</code></td></tr>
+  <tr><th>相關外掛</th><td><code>dsh-power-xc@0.1.6</code>（重啟）、<code>dsh-web-app@0.2.1-rc.5</code>（browser handoff）、<code>open@11.0.4</code>（開啟瀏覽器）</td></tr>
+  <tr><th>覆核結果</th><td><strong>H1 否證</strong>：兩個 hop 都不生 console；環境經驗證可建 console、無檔案沙箱，四組模式全無可見 console，使用者亦未觀察到任何閃爍。</td></tr>
+  <tr><th>仍然成立的觀察</th><td>重啟後的實例<strong>確實沒有主控台</strong>（<code>MainWindowHandle=0</code>、全機 <code>conhost</code> 數 = 0）——這是<strong>預期行為</strong>，不是缺陷。</td></tr>
+</table>
+
+<div class="toc">
+  <strong>目錄</strong>
+  <ol>
+    <li><a href="#tldr">覆核後的結論</a></li>
+    <li><a href="#facts">已量測的事實（誰在跑、有沒有視窗）</a></li>
+    <li><a href="#chain">原始假設：閃爍的因果鏈 <span class="tag no">已否證</span></a></li>
+    <li><a href="#experiment">覆核實驗：怎麼量、量到什麼</a></li>
+    <li><a href="#why">為什麼這個假設看起來合理（但錯在哪）</a></li>
+    <li><a href="#impact">對「瀏覽使用」的實際影響</a></li>
+    <li><a href="#fix">還能做什麼</a></li>
+    <li><a href="#identify">怎麼判斷現在跑的是哪個實例</a></li>
+    <li><a href="#report">要不要回報？<span class="tag no">不要</span></a></li>
+    <li><a href="#drafts">（作廢）issue 草稿</a></li>
+    <li><a href="#verify">若你仍然看到閃爍：怎麼往下查</a></li>
+    <li><a href="#flasher">12. 假線索之一：NVIDIA Sync（次要來源）</a></li>
+    <li><a href="#rootcause">13. 真因：<code>dsh-gitea</code> 每 4 秒 spawn <code>git</code> <span class="tag yes">已修復</span></a></li>
+    <li><a href="#newdraft">14. 可送出的 issue 草稿</a></li>
+    <li><a href="#appendix">附錄：原始證據與實驗數據</a></li>
+  </ol>
+</div>
+
+<h2 id="tldr">1. 覆核後的結論</h2>
+<div class="box ok">
+  <h3>四句話</h3>
+  <ol>
+    <li><strong>重啟後的新實例沒有主控台</strong>——這點<strong>成立</strong>（<code>MainWindowHandle=0</code>、全機 <code>conhost</code>=0），但它是 detached 重啟的<strong>預期結果</strong>，不是 bug。</li>
+    <li><strong>「黑窗一閃＝PowerShell 被分配新 console」不成立。</strong>兩個 hop 實測都沒有 console：hop1（web-app 的 <code>node --eval</code> 啟動器）與 hop2（<code>open</code> 的 <code>powershell</code>）皆為 <code>has=False</code>。</li>
+    <li><strong>決定 console 的不是 <code>windowsHide</code>，是 stdio。</strong>只要子行程的 stdio 是 NUL 或檔案（<code>stdio:'ignore'</code>、重導），Windows 就不會分配 console。兩層都已這樣做，所以<strong>閃不出來</strong>。</li>
+    <li><strong>要回報，但對象不是 <code>open</code>。</strong><code>--no-open</code> 只能少開分頁；真正的元凶是 <code>@goodandready/dsh-gitea</code> 每 4 秒 spawn <code>git</code> 缺少 <code>windowsHide</code>（已修復並驗證，見 <a href="#rootcause">第 13 節</a>）。</li>
+  </ol>
+</div>
+
+<h2 id="facts">2. 已量測的事實（誰在跑、有沒有視窗）</h2>
+<p>在本機目前實例（PID 22156）上實測：</p>
+<table class="data">
+  <tr><th>檢查</th><th>結果</th><th>意義</th></tr>
+  <tr><td><code>Get-Process -Id 22156</code> → <code>MainWindowHandle</code></td><td><code>0</code>，<code>MainWindowTitle</code> <code>''</code></td><td>沒有任何主控台視窗 ✅</td></tr>
+  <tr><td>全機 <code>conhost</code> 行程數</td><td><code>0</code></td><td>系統裡沒有 console host → dsh 沒掛在任何視窗上 ✅</td></tr>
+  <tr><td><code>~/.dsh/dsh-web.log</code></td><td>持續增長</td><td>stdout／stderr 被重導到這個檔</td></tr>
+  <tr><td><code>restart-helper-22156.log</code></td><td>只有 <code>loaded</code>，<strong>沒有</strong> <code>spawned</code></td><td>這個實例<strong>不是</strong> helper 重啟的，是使用者自行啟動</td></tr>
+  <tr><td><code>restart-helper-19752.log</code></td><td>有 <code>spawned pid …</code></td><td>確實有過 helper 重啟的實例</td></tr>
+</table>
+<div class="box warn">
+  <strong>注意第 4 列：</strong>「沒有主控台」<strong>不是</strong>外掛重啟獨有的現象——使用者用某種無 console 的方式啟動時也一樣。所以「沒有主控台」不能用來證明「是重啟造成的」。
+</div>
+
+<h2 id="chain">3. 原始假設：閃爍的因果鏈 <span class="tag no">已否證</span></h2>
+<div class="box bad">
+  以下鏈條的<strong>程式碼描述全部正確</strong>（逐行核對過），但<strong>第 ④ 步的結論（會產生可見黑窗）是錯的</strong>。保留是為了說明錯在哪裡。
+</div>
+<div class="flow">
+  <div><b>①</b> 使用者在 GUI 按重啟 → <code>dsh-power-xc</code> 產生 detached helper，等舊行程結束、等 3080 釋放、等 session 檔落地。<span class="tag yes">屬實</span></div>
+  <div><b>②</b> helper 以 <code>detached:true, windowsHide:true, stdio:['ignore', out, out]</code> 重啟 <code>node bin.js web</code> → 新實例沒有主控台。<span class="tag yes">屬實</span></div>
+  <div><b>③</b> 新實例沿用原始 argv（<code>argc=3</code>，沒有 <code>--no-open</code>）→ <code>openBrowser</code> 為 true → 執行 browser handoff。<span class="tag yes">屬實</span></div>
+  <div><b>④</b> <span class="strike">handoff 先 spawn <code>node --eval</code>，再由 <code>open</code> spawn <code>powershell.exe</code>；<code>open</code> 沒設 <code>windowsHide</code> → Windows 為 PowerShell 配置新 console → 黑窗一閃。</span> <span class="tag no">否證</span> 這一步不會生 console。</div>
+</div>
+<p>三個關鍵程式位置（實際內容，<strong>逐行已核對</strong>）：</p>
+<pre><code># dsh-power-xc 0.1.6：問題的起點——把主控台拿掉
+spawn(relaunch[0], relaunch.slice(1), {
+  cwd, detached: true, stdio: ['ignore', out, out], windowsHide: true,
+});
+# relaunch = [process.execPath, ...process.execArgv, ...process.argv.slice(1)]
+# → 沿用原始 argv；全檔 0 處提到 --no-open（所以 --no-open 會被保留下來）
+
+# dsh-web-app 0.2.1-rc.5：只要 openBrowser 為 true 就一定 handoff
+const handoffBrowser = config.openBrowser &amp;&amp; !launchedThroughSsh(launchEnvironmentOf(ctx));
+# 啟動器 spawnBrowserLauncher：stdio ['ignore','inherit','pipe']，整包 0 處 windowsHide
+
+# open 11.0.4：Windows 分支只設 stdio，沒有 windowsHide、也沒有 detached
+childProcessOptions.stdio = 'ignore';        # L210（win32 分支）
+command = await powerShellPath();            # L171
+# 全檔 windowsHide 出現 0 次
+# 而 L240-245 的 if (!options.wait) { stdio='ignore'; detached=true }
+# 位於 Linux/xdg-open 分支內 → Windows 不吃這個 detached</code></pre>
+
+<h2 id="experiment">4. 覆核實驗：怎麼量、量到什麼</h2>
+<p>量測腳本模擬真實兩段鏈，父行程以 <code>CreateNoWindow + RedirectStandardOutput</code> 啟動（等同「沒有主控台」的 dsh），末端用一個 PowerShell 探針回報 <code>GetConsoleWindow()</code> / <code>IsWindowVisible()</code> / <code>GetConsoleProcessList()</code>。</p>
+
+<h3>4.1 先驗證環境本身（否則結果無意義）</h3>
+<table class="data">
+  <tr><th>檢查</th><th>結果</th><th>意義</th></tr>
+  <tr><td>寫入 <code>~/.dsh\sandbox-probe.txt</code></td><td><strong>OK 可寫</strong></td><td>這個視窗<strong>不在</strong> DSH 檔案沙箱內 → 實驗環境合格</td></tr>
+  <tr><td><code>Start-Process cmd /c "timeout 5"</code></td><td><strong>跳出視窗並倒數</strong></td><td>這個環境<strong>能</strong>建立新 console</td></tr>
+  <tr><td><code>cmd /c start "" cmd /c "timeout 5"</code></td><td><strong>再跳出一個視窗</strong></td><td>CREATE_NEW_CONSOLE 正常</td></tr>
+</table>
+<div class="box ok">
+  <strong>這兩項是關鍵。</strong>沒有它們，<code>has=False</code> 可能只是「環境不允許建 console」的假象——那就會重演上一輪在沙箱裡「四種組合全同」的無效實驗。環境驗證通過後，<strong>下面每一列才具備鑑別力</strong>。
+</div>
+
+<h3>4.2 兩段鏈的四種組合（父行程無 console）</h3>
+<table class="data">
+  <tr><th>模式</th><th>hop1 <code>windowsHide</code></th><th>hop2 <code>windowsHide</code></th><th>has</th><th>visible</th><th>attached</th></tr>
+  <tr><td><code>chain-none</code>（＝目前的 DSH 行為）</td><td>否</td><td>否</td><td>False</td><td>False</td><td class="num">0</td></tr>
+  <tr><td><code>chain-hide1</code></td><td>是</td><td>否</td><td>False</td><td>False</td><td class="num">0</td></tr>
+  <tr><td><code>chain-hide2</code></td><td>否</td><td>是</td><td>False</td><td>False</td><td class="num">0</td></tr>
+  <tr><td><code>chain-hide12</code></td><td>是</td><td>是</td><td>False</td><td>False</td><td class="num">0</td></tr>
+  <tr><td><strong>對照組</strong>（父行程<strong>有</strong> console）</td><td>否</td><td>否</td><td>True</td><td>True</td><td class="num">2</td></tr>
+</table>
+<p>對照組證明探針會運作、也證明「繼承既有 console」有效；四組實驗全為 <code>False</code>。使用者同步回報：<strong>四組都沒有看到任何黑窗</strong>。</p>
+
+<h3>4.3 再確認 <code>detached</code>（原懷疑的第四個變數）</h3>
+<p>複核 <code>open</code> 原始碼後確認：<code>detached = true</code> 只出現在 <strong>Linux/xdg-open 分支</strong>，Windows 分支不設。但仍做了單變數隔離測試：</p>
+<table class="data">
+  <tr><th>combo</th><th>detached</th><th>windowsHide</th><th>ran</th><th>exitCode</th><th>stdout/stderr</th></tr>
+  <tr><td>A <code>cmd.exe</code> 對照</td><td>否</td><td>否</td><td><strong>true</strong></td><td class="num">0</td><td>有輸出</td></tr>
+  <tr><td>B <code>cmd.exe</code> 對照</td><td>是</td><td>否</td><td><strong>true</strong></td><td class="num">0</td><td>有輸出</td></tr>
+  <tr><td>C <code>powershell</code></td><td>是</td><td>否</td><td><strong>false</strong></td><td class="num">0</td><td>空</td></tr>
+  <tr><td>D <code>powershell</code></td><td>否</td><td>否</td><td><strong>true</strong></td><td class="num">0</td><td>空（但確實執行）</td></tr>
+  <tr><td>E <code>powershell -File</code></td><td>是</td><td>否</td><td><strong>false</strong></td><td class="num">0</td><td>空</td></tr>
+</table>
+<div class="box warn">
+  <strong>附帶發現（與 DSH 無關，值得記一筆）：</strong>在「沒有主控台」的父行程下，<code>detached:true</code> 對 <code>cmd.exe</code> 正常，但對 <code>powershell.exe</code> 會<strong>靜默失敗</strong>——<code>exitCode=0</code>、stdout/stderr 全空、指令完全沒執行。DSH 的 Windows 路徑不吃 detached，所以與 DSH 無關；但若你在別處遇到「PowerShell 用 detached 啟動就什麼都沒做」，這就是原因。
+</div>
+
+<h2 id="why">5. 為什麼這個假設看起來很合理（但錯在哪）</h2>
+<p>錯在一個流傳很廣、但被過度簡化的說法：</p>
+<div class="box bad">
+  <span class="strike">「沒有主控台的行程啟動另一個 console 程式時，Windows 會為它配置新主控台，除非帶 <code>CREATE_NO_WINDOW</code>（<code>windowsHide:true</code>）。」</span>
+</div>
+<p>實際規則是：<strong>子行程會不會拿到 console，取決於建立時有沒有給它有效的 stdio 控制代碼。</strong></p>
+<ul>
+  <li>呼叫端明確指定 stdio（<code>'ignore'</code> → NUL、或檔案／管線控制代碼）時，Windows <strong>不會</strong>再配一個 console。這條鏈的兩個 hop 都屬此類 → <strong>不會閃</strong>。</li>
+  <li>只有在 stdio <strong>未指定</strong>、必須把子行程接到「不存在的 console」時，才會發生「配一個新的給你」的情形。</li>
+  <li><code>windowsHide</code>（<code>CREATE_NO_WINDOW</code>）是<strong>額外的保險</strong>，不是這個情境下的決定因素。</li>
+</ul>
+<p>換句話說：<code>dsh-web-app</code> 的 <code>stdio: 'ignore'</code> 與 <code>open</code> 的 <code>childProcessOptions.stdio = 'ignore'</code> <strong>已經把閃爍擋掉了</strong>，只是擋的方式不是靠 <code>windowsHide</code>。</p>
+
+<h2 id="impact">6. 對「瀏覽使用」的實際影響</h2>
+<table class="data">
+  <tr><th>影響</th><th>原因</th><th>是否可避免</th></tr>
+  <tr><td><span class="strike">每次重啟看到黑窗一閃</span></td><td><span class="strike">PowerShell 被分配新 console</span> <span class="tag no">不存在</span></td><td>—</td></tr>
+  <tr><td>每次重啟多開一個瀏覽器分頁</td><td>每次啟動 <code>openBrowser</code> 都會 handoff 一次</td><td>可（<code>--no-open</code>）</td></tr>
+  <tr><td>看不到新的網址／token</td><td>新實例沒有主控台，網址只寫進 <code>dsh-web.log</code></td><td>可（從日誌取，見 6.1）</td></tr>
+  <tr><td>舊 DOS 視窗按 Ctrl+C 停不掉</td><td>新實例已 detached，不屬於那個視窗的行程樹</td><td>只能依 PID 或再用外掛關閉</td></tr>
+  <tr><td>不確定「現在到底是哪個實例在跑」</td><td>沒有視窗可以認，只能看 PID</td><td>可（見第 8 節）</td></tr>
+</table>
+
+<h3 id="log">6.1 從日誌取目前有效的網址</h3>
+<pre><code>Get-Content "$env:USERPROFILE\.dsh\dsh-web.log" |
+  Select-String 'dsh web: http' | Select-Object -Last 1</code></pre>
+<p>token 每次啟動都不同，所以要取「最後一行」，不是瀏覽器裡舊分頁那個。</p>
+
+<h2 id="fix">7. 還能做什麼</h2>
+<h3>方案 A：<code>--no-open</code>（唯一有實質好處的選項）</h3>
+<pre><code>dsh web --no-open</code></pre>
+<p>因為 <code>dsh-power-xc</code> 重啟時<strong>沿用原始 argv</strong>（<code>relaunch = [execPath, ...execArgv, ...argv.slice(1)]</code>，且全檔 0 處提到 <code>--no-open</code>），這個旗標會被重啟流程保留：之後每次外掛重啟都<strong>不會再開新分頁</strong>，也少一次無謂的 spawn。</p>
+<div class="box warn">
+  <strong>但理由已經不是「消除閃爍」</strong>——閃爍本來就不存在。純粹是「不想每次重啟多一個分頁」。
+</div>
+
+<h3>方案 B：保有主控台的重啟方式</h3>
+<p>在 Windows Terminal 裡跑 <code>dsh web</code>，要重啟就在同一視窗 Ctrl+C 再重下。這解決「認不出實例」與「看不到網址」兩個問題，與閃爍無關。</p>
+
+<h3>方案 C：維持現狀（外掛關閉 → DOS 重開）</h3>
+<p>只要知道：<strong>任何還開著的舊 DOS 視窗都停不掉新實例</strong>，停它要用 PID 或外掛。</p>
+
+<div class="box bad">
+  <strong>不要</strong>去改 <code>node_modules/open/index.js</code> 補 <code>windowsHide</code>。不只是「升級會被覆蓋」——更根本的是<strong>改了也沒有用</strong>，這個情境本來就不會生 console。改了只會讓你之後回報問題時難以重現。
+</div>
+
+<h2 id="identify">8. 怎麼判斷現在跑的是哪個實例</h2>
+<pre><code># 1) 誰在聽 3080
+netstat -ano | Select-String ':3080\s+0.0.0.0:0\s+LISTENING'
+
+# 2) 這個 PID 有沒有主控台（0 = 沒有，這是預期）
+Get-Process -Id &lt;PID&gt; | Select-Object Id, ProcessName, MainWindowHandle, StartTime
+
+# 3) 它是「外掛重啟」還是「使用者自己啟動」
+Get-Content "$env:USERPROFILE\.dsh\restart-helper-&lt;PID&gt;.log"</code></pre>
+<table class="data">
+  <tr><th>restart-helper-&lt;PID&gt;.log 內容</th><th>代表</th></tr>
+  <tr><td>只有 <code>loaded pid=…</code></td><td><strong>不是</strong> helper 重啟的（但仍可能是無 console 啟動）</td></tr>
+  <tr><td>有 <code>spawned pid &lt;PID&gt; (attempt 1)</code></td><td>由外掛 helper 重啟的，<strong>無主控台</strong>、輸出在 <code>dsh-web.log</code></td></tr>
+</table>
+<div class="box warn">
+  <strong>修正：</strong>原版本寫「只有 <code>loaded</code> → 有主控台」，這是錯的。<code>loaded</code> 只代表該行程載入了 helper 模組，與有沒有 console 無關——本機 22156 就是只有 <code>loaded</code> 卻 <code>MainWindowHandle=0</code>。<strong>要判斷有沒有 console 只能看 <code>MainWindowHandle</code>。</strong>
+</div>
+
+<h2 id="report">9. 要不要回報？<span class="tag maybe">對象換人</span></h2>
+<div class="box bad">
+  <h3>判定</h3>
+  <p><span class="tag no">不要把 issue 送給 <code>open</code>／<code>dsh-power-xc</code></span> 這兩個候選的歸因是錯的（第 3–5 節已否證）。注意：<strong>「會閃」這個現象本身是真的</strong>——錯的是「誰造成的」。</p>
+  <p><span class="tag yes">要送的是 <code>@goodandready/dsh-gitea</code></span> 真正的原因在該外掛的 <code>git</code> spawn 缺少 <code>windowsHide</code>（第 13 節），草稿見第 14 節。</p>
+</div>
+<table class="data">
+  <tr><th>專案</th><th>原本的判定</th><th>覆核後</th></tr>
+  <tr>
+    <td><code>dsh-power-xc</code></td>
+    <td><span class="tag yes">主要</span> 製造「無主控台」前提卻沒處理後果</td>
+    <td><span class="tag dead">無需修改</span> detached + hidden 重啟是正確設計，沒有後果要處理。<br>唯一可考慮的是<strong>產品建議</strong>（不是 bug）：重啟後把新網址顯示在 GUI，省得翻日誌。</td>
+  </tr>
+  <tr>
+    <td><code>open</code>（上游）</td>
+    <td><span class="tag maybe">次要但根本</span> Windows 分支沒帶 <code>windowsHide</code></td>
+    <td><span class="tag dead">不成立</span> Windows 分支已設 <code>stdio:'ignore'</code>，不會生 console；<code>windowsHide</code> 不是決定因素。<br>唯一值得留意的是第 4.3 節那個 <strong>PowerShell 限定的 detached 靜默失敗</strong>，但 <code>open</code> 在 Windows 不用 detached，所以也不是 <code>open</code> 的問題。</td>
+  </tr>
+  <tr>
+    <td><code>dsh-web-app</code></td>
+    <td><span class="tag no">不必</span></td>
+    <td><span class="tag dead">維持</span> 用 <code>stdio:'ignore'</code> 已是正確做法。補 <code>windowsHide</code> 是無害的防禦性寫法，但<strong>不構成 issue</strong>。</td>
+  </tr>
+</table>
+
+<h2 id="drafts">10. （作廢）issue 草稿</h2>
+<div class="box bad">
+  <p><strong>以下兩份草稿已作廢，請勿送出。</strong>保留是為了避免日後有人重新走上同一條推理路徑。</p>
+  <p>作廢原因：兩份都以「缺 <code>windowsHide</code> ⇒ PowerShell 被分配新 console ⇒ 可見閃爍」為前提，而該前提已由第 4.2 節的四組實驗與對照組否證。</p>
+</div>
+<ul>
+  <li><strong>原 9.1（給 <code>dsh-power-xc</code>）</strong>：title 與 Root cause 建立在錯誤前提上。若真要提，只能提成 feature request：「重啟後在 GUI 顯示新網址」。</li>
+  <li><strong>原 9.2（給 <code>open</code>）</strong>：聲稱「<code>windowsHide</code> 不出現在檔案中 → 會閃」。事實：<code>stdio</code> 已足夠避免 console。若要回報，題目應該是那個<strong>獨立的</strong>「detached + PowerShell 靜默失敗」，且需先確認與 <code>open</code> 的 Windows 路徑無關。</li>
+</ul>
+
+<h2 id="verify">11. 若你仍然看到閃爍：怎麼往下查 <span class="tag yes">已解答</span></h2>
+<div class="box ok">
+  <strong>本節已由第 12 節解答。</strong>原本列的四個候選中，第 1 個（舊視窗關閉）與第 3 個（瀏覽器／其他程式自己的視窗）方向正確；真正的來源是一個<strong>與 dsh 完全無關的常駐程式</strong>。以下保留推論方法，供日後遇到類似現象時參考。
+</div>
+<p>結論是「這條鏈不閃」。若你<strong>實際重啟時仍然看到黑窗</strong>，來源不在這裡。依可能性排序：</p>
+<ol class="steps">
+  <li><strong>舊視窗關閉的視覺殘留</strong>：原本是在 DOS／Windows Terminal 視窗裡啟動的，重啟時那個視窗關掉——看起來像「閃一下」。用 <code>restart-helper-*.log</code> 確認該實例是否真是 helper 重啟；若是，原本的視窗本來就會消失。</li>
+  <li><strong>其他外掛自己 spawn 了行程</strong>：在閃爍的瞬間抓新行程（見下方驗收方式），看看到底是誰被啟動。</li>
+  <li><strong>瀏覽器端</strong>：某些預設瀏覽器冷啟動時會先出現一個短命的主控台／啟動器視窗。</li>
+  <li><strong>Windows 11 的差異</strong>：Windows Terminal 接管 console 的行為不同，反過來也可能在 Win10 出現 Win11 沒有的視覺效果。</li>
+</ol>
+<div class="box ok">
+  <strong>驗收方式（給未來的自己）：</strong>閃爍與否<strong>不能用「感覺」驗收</strong>。要在閃的瞬間記錄「新增了哪個行程、它的 <code>MainWindowHandle</code> 是多少」，否則會再次掉進「合理但錯」的假設。
+</div>
+
+<h2 id="flasher">12. 假線索之一：NVIDIA Sync 的 5.2 秒輪詢 <span class="tag maybe">次要來源，已停用</span></h2>
+<div class="box warn">
+  <strong>本節是中途抓到的一條線索，不是主因。</strong>停用它之後閃爍<strong>仍然存在</strong>（節奏由 5.2 秒變成 4.0 秒），才繼續追到第 13 節的真因。保留此節是因為它是「多重干擾源」的實例——環境裡同時存在兩個獨立的輪詢者。
+</div>
+<p>2026-10-30 17:17 於同一台機器實測，<strong>觀察期間完全沒有碰 dsh</strong>：</p>
+<table class="data">
+  <tr><th>項目</th><th>內容</th></tr>
+  <tr><td>行程</td><td><code>NVIDIA Sync.exe</code>（PID 6852）</td></tr>
+  <tr><td>執行檔</td><td><code>C:\Users\<you>\AppData\Local\Programs\nvidia-sync\NVIDIA Sync.exe</code></td></tr>
+  <tr><td>啟動者</td><td><code>explorer.exe</code>（PID 5924）→ 使用者登入後自動啟動的 tray 程式</td></tr>
+  <tr><td>它做的事</td><td>每 5.2–5.3 秒 spawn <code>cmd.exe /d /s /c "…\nvsync-amd64.exe" status peer-a</code> 與 <code>status peer-b</code>（成對，間隔 0.01–0.02 秒）</td></tr>
+  <tr><td>為什麼會閃</td><td>每次 spawn 都配置一個新 console（<code>conhost.exe</code>），視窗短暫可見，且<strong>搶走前景焦點</strong></td></tr>
+</table>
+<p>實測呼叫間隔：<code>0.01 / 5.32 / 5.24 / 0.02</code>（秒）——與「每 3~5 秒閃一次」的肉眼觀察一致。排程工作中<strong>沒有</strong>任何 NVIDIA 項目，服務清單裡也沒有 nvidia-sync 的服務，所以它是靠<strong>啟動資料夾或 Run 機碼</strong>自動啟動。</p>
+
+<h3>12.1 為什麼會誤以為是 dsh 造成的</h3>
+<div class="box warn">
+  <ol>
+    <li>按重啟後，原本跑 <code>dsh web</code> 的那個 DOS 視窗結束、回到提示字元——桌面上少了一個佔住前景的視窗，這些 popup 才<strong>變得顯眼</strong>。</li>
+    <li>NVIDIA Sync 的輪詢<strong>重啟前就在跑，節奏完全沒變</strong>（下表的時間軸可證）。</li>
+    <li>「瀏覽器輸入被打斷」是 console 視窗搶焦點的典型症狀，只在<strong>你開始用瀏覽器之後</strong>才有感——也就是重啟之後。</li>
+  </ol>
+</div>
+
+<h3>12.2 時間軸：重啟前後節奏不變（這就是「無關」的證明）</h3>
+<table class="data">
+  <tr><th>時間</th><th>事件</th></tr>
+  <tr><td>16:30:47.379 → .514</td><td><code>cmd</code>（nvsync peer-b）→ <code>conhost</code></td></tr>
+  <tr><td>16:30:52.611 → .748</td><td><code>cmd</code> → <code>conhost</code></td></tr>
+  <tr><td>16:30:57.952 → 58.273</td><td><code>cmd</code> → <code>conhost</code></td></tr>
+  <tr><td>16:31:03.210 → .562</td><td><code>cmd</code> → <code>conhost</code></td></tr>
+  <tr><td>16:31:08.459 → .615</td><td><code>cmd</code> → <code>conhost</code></td></tr>
+  <tr><td>16:31:13.710 → .874</td><td><code>cmd</code> → <code>conhost</code></td></tr>
+  <tr><td><strong>16:31:31.006</strong></td><td>helper 啟動（<code>dsh-restart-helper-*.cjs</code>，pid 11876）</td></tr>
+  <tr><td><strong>16:31:34.135</strong></td><td>新 dsh 啟動（<code>bin.js web</code>，pid 22668）——<strong>中間沒有任何 conhost</strong></td></tr>
+  <tr><td>16:31:35.054 → .593</td><td><code>cmd</code> → <code>conhost</code>（照樣 5.2 秒後一次）</td></tr>
+  <tr><td>16:31:40.339 → 41.033</td><td><code>cmd</code> → <code>conhost</code></td></tr>
+</table>
+<p>重啟本身只產生<strong>兩個 node 行程</strong>，一個 console 都沒有；反覆閃爍的是<strong>另一條完全獨立的 5.2 秒節奏</strong>。</p>
+
+<h3>12.3 關閉方式（依侵入性排序）</h3>
+<ol class="steps">
+  <li><strong>（建議，可逆）工作管理員 → 啟動 → 停用「NVIDIA Sync」</strong>，然後從系統匣右鍵退出。下次登入就不會再起來，也不會再閃。</li>
+  <li><strong>用完再開</strong>：需要時手動執行 <code>C:\Users\<you>\AppData\Local\Programs\nvidia-sync\NVIDIA Sync.exe</code>。</li>
+  <li><strong>檢查它自己的設定有沒有輪詢間隔</strong>：若有，拉長到 60 秒以上即可大幅減少干擾。</li>
+</ol>
+<p>先確認自動啟動來源（單行指令）：</p>
+<pre><code>Get-CimInstance Win32_StartupCommand | Where-Object { $_.Command -match 'nvidia' } | Format-List Name,Command,Location</code></pre>
+<div class="box ok">
+  <strong>dsh 這邊不需要改任何東西。</strong><code>--no-open</code>、<code>dsh-power-xc</code>、<code>open</code>、<code>dsh-web-app</code> 全都與此事無關。先前「缺 <code>windowsHide</code>」的假設與對應的 issue 草稿可以永久作廢。
+</div>
+
+<h2 id="rootcause">13. 真因（已修復並驗證）：<code>dsh-gitea</code> 每 4 秒 spawn <code>git</code> 缺 <code>windowsHide</code> <span class="tag yes">確認</span></h2>
+
+<h3>13.1 完整因果鏈</h3>
+<div class="flow">
+  <div><b>①</b> 瀏覽器裡的 GUI 載入 <code>dsh-gitea</code> 的狀態元件，它每 <strong>4 秒</strong>輪詢一次：<code>lib/client.js:1905</code>／<code>:1918</code> 的 <code>setInterval(fetchStatus, 4000)</code>。<strong>這個間隔是寫死的</strong>，沒有設定項可調。</div>
+  <div><b>②</b> 請求打到 <code>/git-status</code>，路由處理器呼叫 <code>isGitDir(dir, execFile)</code>（<code>lib/routes.js:246</code> 與 <code>:294</code>）。</div>
+  <div><b>③</b> <code>isGitDir()</code> 執行 <code>readGit(execFile, cwd, ['rev-parse', '--show-toplevel'])</code>（<code>lib/git-local.js:64</code>）。</div>
+  <div><b>④</b> <code>readGit()</code> 用 <code>exec('git', args, { cwd, timeout: 20_000, maxBuffer })</code>（<code>lib/git-local.js:39</code>）——<strong>沒有 <code>windowsHide</code></strong>。整個套件裡 <code>windowsHide</code> 只出現在 <code>plugin-updater.js:192</code>，與這條路徑無關。</div>
+  <div><b>⑤</b> <code>git.exe</code> 產生 console 視窗（部分時刻 <code>visible=True</code>）→ 短暫可見且<strong>搶走前景焦點</strong> → 你在瀏覽器打字會漏字。</div>
+</div>
+
+<h3>13.2 證據</h3>
+<table class="data">
+  <tr><th>項目</th><th>實測值</th></tr>
+  <tr><td>節奏</td><td><code>3.96 / 4.32 / 3.68 / 4.03 / 4.01 / 4.04 / 3.98 / 3.98 / 4.08</code> 秒</td></tr>
+  <tr><td>擁有 console 的行程</td><td><code>git.exe</code>，父行程 = <code>node.exe</code>（PID 22668，即 <code>bin.js web</code>）</td></tr>
+  <tr><td>命令列</td><td><code>git rev-parse --show-toplevel</code></td></tr>
+  <tr><td>可見性</td><td>7 次觀測中 4 次 <code>visible=True</code>、3 次 <code>False</code></td></tr>
+  <tr><td>修復後</td><td>補上 <code>windowsHide: true</code> → <strong>連續重開三次都不再閃</strong></td></tr>
+</table>
+
+<h3>13.3 為什麼這麼難抓</h3>
+<div class="box warn">
+  <ol>
+    <li><strong>擁有 console 的行程活不到幾十毫秒</strong>：用 <code>Get-Process</code> 輪詢（40ms 一次）幾乎必然漏掉；而且這台舊 CPU 上一次 <code>Get-Process</code> 就要上百毫秒，實際輪詢遠慢於設定值。<strong>最後是靠「列舉視窗」再反查 PID 才抓到</strong>（視窗存在時，擁有它的行程一定還活著）。</li>
+    <li><strong>環境裡有兩個獨立輪詢者</strong>：NVIDIA Sync 每 5.2 秒、<code>dsh-gitea</code> 每 4.0 秒。停掉前者後節奏變成 4.0 秒，看起來像「問題還在、但換了節奏」——這正是把兩者分開的關鍵線索（第 12 節）。</li>
+    <li><strong>時間相關性會騙人</strong>：重啟後瀏覽器才開 GUI，GUI 一開才開始輪詢——所以現象「只在重啟後出現」，但真正的原因跟重啟本身無關，是「重啟導致瀏覽器開起來」。</li>
+  </ol>
+</div>
+
+<h3>13.4 修法</h3>
+<p>在 <code>lib/git-local.js</code> 的兩個 <code>exec</code> 選項各補一個 <code>windowsHide: true</code>（<code>readGit</code> L39 的 <code>20_000</code>、<code>writeGit</code> L55 的 <code>30_000</code>）：</p>
+<pre><code>// 修法前
+await exec('git', args, { cwd, timeout: 20_000, maxBuffer: 2 * 1024 * 1024 })
+
+// 修法後
+await exec('git', args, { cwd, timeout: 20_000, maxBuffer: 2 * 1024 * 1024, windowsHide: true })</code></pre>
+<div class="box bad">
+  <strong>這是直接改 <code>node_modules</code>，外掛更新後會被覆蓋。</strong>所以正解是<strong>回報上游</strong>（草稿見第 14 節），本地補丁只當臨時措施。改前請備份：<code>git-local.js</code> → <code>git-local.js.bak</code>。
+</div>
+
+<h2 id="newdraft">14. 可送出的 issue 草稿（<code>@goodandready/dsh-gitea</code>）<span class="tag yes">新</span></h2>
+<pre><code>Title: Windows: the 4-second status poll flashes a console window and steals foreground focus
+
+## Environment
+- Windows 10 Enterprise LTSC 2019 (17763.9376), Node v24.21.0
+- @deepseek-ai/dsh 0.2.1-rc.5
+- @goodandready/dsh-gitea 0.7.39
+
+## Steps
+1. Start `dsh web` and open the GUI in a browser (so the status chip starts polling).
+2. Leave it idle; watch the desktop.
+
+## Actual
+- A console window appears and disappears roughly every 4 seconds.
+- It steals foreground focus: typing in the browser loses characters.
+- The window is owned by `git.exe`; its parent is the dsh node process (PID of `bin.js web`),
+  and its command line is `git rev-parse --show-toplevel`.
+
+## Expected
+The git probe should be invisible; no console window, no focus change.
+
+## Root cause
+The status component polls every 4000 ms (`lib/client.js:1905` and `:1918`,
+`setInterval(fetchStatus, 4000)` — the interval is hard-coded, no setting exposes it).
+Each poll hits `/git-status`, whose handler calls `isGitDir()` (`lib/routes.js:246`, `:294`),
+which calls `readGit(execFile, cwd, ['rev-parse', '--show-toplevel'])` (`lib/git-local.js:64`).
+`readGit()` then runs:
+
+    exec('git', args, { cwd, timeout: 20_000, maxBuffer: 2 * 1024 * 1024 })
+
+without `windowsHide`. The string `windowsHide` does not appear anywhere in
+`git-local.js`; the only occurrence in the package is `plugin-updater.js:192`.
+When the dsh process has no console (the normal case after a plugin restart),
+the spawned `git.exe` can receive a fresh console window.
+
+## Fix
+Add `windowsHide: true` to the exec options in `readGit()` (L39) and `writeGit()` (L55).
+
+## Verification
+With `windowsHide: true` applied locally, three consecutive `dsh web` restarts produced
+no console window and no focus loss. Reverting the two-line change reproduces the flash
+every ~4 seconds.
+</code></pre>
+<p>另可順帶建議：把 4000 ms 這個間隔做成設定項（或改事件驅動），可以一併降低無謂的 <code>git</code> 呼叫。</p>
+
+<h2 id="appendix">附錄：原始證據與實驗數據</h2>
+<h3>A. 目前實例（2026-10-30）</h3>
+<pre><code>pid 22156: node
+MainWindowHandle = 0        MainWindowTitle = ''
+全機 conhost 行程數 = 0
+restart-helper-22156.log: 只有 loaded，沒有 spawned
+→ 沒有主控台，但「不是 helper 重啟」造成的</code></pre>
+
+<h3>B. helper 日誌（節錄，確認重啟鏈存在）</h3>
+<pre><code>2026-10-30T03:44:31.088Z helper up: old pid 16628, waiting for it to exit
+2026-10-30T03:44:34.153Z old pid gone, waiting for port 3080 to free
+2026-10-30T03:44:35.084Z session logs quiescent
+2026-10-30T03:44:35.085Z relaunching: exec=… argc=3
+2026-10-30T03:44:35.102Z spawned pid 9868 (attempt 1)
+→ argc=3 對應 [node.exe, lib\bin.js, web]，沒有 --no-open</code></pre>
+
+<h3>C. 相關版本（全部核對過）</h3>
+<table class="data">
+  <tr><th>元件</th><th>版本</th><th>關鍵事實</th></tr>
+  <tr><td><code>@deepseek-ai/dsh</code></td><td>0.2.1-rc.5</td><td><code>dsh-web-app</code> 提供 <code>webApp</code>；<code>openBrowser</code> 預設 true</td></tr>
+  <tr><td><code>dsh-power-xc</code></td><td>0.1.6</td><td>detached + windowsHide 重啟；沿用原始 argv；0 處處理 <code>--no-open</code></td></tr>
+  <tr><td><code>open</code></td><td>11.0.4</td><td>win32 分支：<code>stdio='ignore'</code>，<strong>無</strong> <code>windowsHide</code>、<strong>無</strong> <code>detached</code></td></tr>
+  <tr><td><code>dsh-web-app</code></td><td>0.2.1-rc.5</td><td>啟動器 <code>stdio:['ignore','inherit','pipe']</code>；整包 0 處 <code>windowsHide</code></td></tr>
+</table>
+
+<h3>D. 覆核實驗原始數據</h3>
+<pre><code># 環境驗證（沒有這兩項，下面的 False 都沒有意義）
+寫入 ~/.dsh            : OK 可寫（無檔案沙箱）
+Start-Process cmd      : 跳出視窗並倒數 5 秒   -> 能建立新 console
+cmd /c start cmd       : 再跳出一個視窗        -> CREATE_NEW_CONSOLE 正常
+
+# 兩段鏈（父行程無 console）
+chain-none    has=False visible=False attached=0
+chain-hide1   has=False visible=False attached=0
+chain-hide2   has=False visible=False attached=0
+chain-hide12  has=False visible=False attached=0
+control（父有 console） has=True visible=True attached=2
+使用者觀察：四組都沒有看到任何黑窗
+
+# detached 單變數隔離
+A cmd        det=0  ran=true   exit=0
+B cmd        det=1  ran=true   exit=0
+C powershell det=1  ran=false  exit=0  stdout='' stderr=''
+D powershell det=0  ran=true   exit=0
+E powershell det=1 (‑File) ran=false exit=0</code></pre>
+
+<footer>
+  <p>本文件為單檔 HTML，無外部資源，可離線開啟或列印。建立於 2026-10-30；同日完成覆核（否證原假設）、定位真因（<code>dsh-gitea</code> 缺 <code>windowsHide</code>）並以三次重開驗證修復。</p>
+  <p>原則：<strong>「時間上先後發生」不等於「因果」；多個干擾源要逐一分離；抓不到名字就換一個觀測面（行程抓不到 → 改列舉視窗）。</strong></p>
+</footer>
+
+</main>
+</body>
+</html>
