@@ -3,7 +3,7 @@
 **Applies to:** Windows (the technique is Windows-specific; the idea is not).
 **Answers:** *who* is creating the console window that keeps flashing?
 
-## The trap
+## Why process polling fails
 
 A console window that appears for 100 ms is owned by a process that may live **less than 50 ms**.
 Meanwhile on an old CPU a single `Get-Process` call costs ~100 ms, so a loop configured for
@@ -12,6 +12,19 @@ Meanwhile on an old CPU a single `Get-Process` call costs ~100 ms, so a loop con
 Result: you see the *console host* (`conhost.exe`) but never the process that owns it, and the
 parent-PID lookup returns nothing because the process is already gone. The output looks like
 "owner: (empty)" — which is easy to misread as "no owner".
+
+Three approaches were tried before the one below worked. Each produced a confident-looking empty
+result, which is the worst failure mode for a probe:
+
+| Attempt | Why it failed | How it looked |
+|---|---|---|
+| `Get-Process -Name …` every 40 ms | one call costs ~100 ms on this CPU, so the effective period was ~200-400 ms; a sub-50 ms process never appears in a snapshot | `conhost` births show up with **empty** `Owner` / `ParentName` |
+| Resolve the parent PID through CIM right after detection | the parent had already exited, so `Win32_Process -Filter "ProcessId = N"` returns nothing | `parent=5152` with no name and no command line |
+| Raise the polling rate only | diminishing returns — the loop can never be faster than its own measurement cost | same empty fields, more CPU burned |
+| **Enumerate windows, map back to a PID** | a window that exists proves its owner exists | `owner=git.exe parent=node.exe`, command line included |
+
+Untested alternative: WMI `Win32_ProcessStartTrace` (event-driven, no polling) — needs elevation
+and was not tried here. If you have admin rights, it is likely the cleanest option on Windows.
 
 ## The fix: observe the window, not the process
 

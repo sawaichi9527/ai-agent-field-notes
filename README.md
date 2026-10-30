@@ -22,6 +22,7 @@ evidence that you can tell a real root cause from a coincidence.
 |---|---|---|---|---|
 | Startup takes 20+ s, window blank the whole time | DSH | Windows 10 | CPU-bound module loading; cost scales with plugin bundle count | [case](cases/2026-10-30-dsh-slow-startup-win/) · [playbook](playbooks/0001-measure-cpu-vs-wall.md) |
 | A console window flashes every ~4 s and typing in the browser loses characters | DSH + `@goodandready/dsh-gitea` | Windows 10 | `git rev-parse` spawned from a 4 s status poll without `windowsHide` | [case](cases/2026-10-30-dsh-console-flash-win/) · [playbook](playbooks/0003-catch-short-lived-windows.md) |
+| A plugin is installed but never shows up in the marketplace's "installed" list | DSH + `@maxhsu/dsh-forge` | Windows | host-only plugin has no UI panel; the panel also labels it by entry id, not package name | [case](cases/2026-09-18-dsh-plugin-not-showing/) |
 
 ## Playbooks (the reusable part)
 
@@ -33,13 +34,23 @@ These are tool-agnostic. They apply to any agent CLI on any OS unless noted.
 4. [Separate causes that share the same symptom](playbooks/0004-separate-correlated-causes.md)
 5. [On Windows, stdio decides whether a console appears — not `windowsHide`](playbooks/0005-windows-console-window-rules.md)
 
+## Docs (product-specific reference)
+
+Not method — facts that took a while to establish, so they live in one place:
+
+- [What the agent sandbox blocks](docs/dsh-sandbox.md) — a measured table of what is denied and
+  what still works, plus the four workarounds that survived
+- [Where the DSH diagnostics are](docs/dsh-diagnostics.md) — the four log/flag sources, what each
+  can and cannot answer, and which claims are version-dependent
+- [Methodology](docs/methodology.md) — the reasoning order the cases follow
+
 ## Layout
 
 ```
 cases/      one directory per investigated symptom (evidence + write-up)
 playbooks/  reusable method, one file per idea
-tools/      probes, split by platform
-docs/       longer methodology notes
+tools/      probes, chosen by question - start at tools/README.md
+docs/       facts and methodology
 handoff.md  current state: what is settled, what is still open
 SANITIZE.md rules applied before publishing anything here
 ```

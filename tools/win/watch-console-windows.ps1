@@ -1,3 +1,17 @@
+# STATUS : proven
+# PLATFORM: windows
+# NEEDS  : PowerShell 7 (no external modules)
+# ANSWERS: Which process creates the console window that keeps flashing?
+# SIDE EFFECTS: none - read-only. Enumerates top-level windows, queries process
+#               metadata, writes nothing outside %TEMP% and stdout.
+# USED BY: playbooks/0003, cases/2026-10-30-dsh-console-flash-win/
+#
+# Why windows instead of processes
+#   The process that owns a flashing console can live < 50 ms, while one Get-Process
+#   call costs ~100 ms on an old CPU - so process polling always loses the race and
+#   the parent PID resolves to nothing. A window that exists proves its owner exists,
+#   and EnumWindows is fast. See playbooks/0003 for the three failures that led here.
+#
 # watch-console-windows.ps1 — 用「列舉視窗」抓閃爍的 console，不靠輪詢行程
 #
 #   .\watch-console-windows.ps1

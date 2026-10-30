@@ -48,6 +48,14 @@ Details, evidence and the ready-to-send upstream draft:
 Also falsified in that case: the earlier theory that `open` / `dsh-web-app` missing `windowsHide`
 causes the flash. That chain never creates a console at all (four combinations + control group).
 
+### 3. A plugin that "does not show up" is usually not installed badly
+
+`@maxhsu/dsh-forge` never appears in the marketplace's installed list because it is a host-only
+tool plugin with no client panel, and because the panel labels it by its entry id (`forge-tools`)
+instead of its package name. The only reliable test is to **call a tool it registers**.
+
+Details: [`cases/2026-09-18-dsh-plugin-not-showing/`](cases/2026-09-18-dsh-plugin-not-showing/)
+
 ## Open
 
 | # | Item | Why it matters | Starting point |
@@ -61,11 +69,12 @@ causes the flash. That chain never creates a console at all (four combinations +
 
 Keep these in mind before starting a new investigation.
 
-1. **Measuring from inside the agent is structurally invalid.** Every write outside the session
-   workspace is denied (`EPERM` at `prepareProfile`), piped-stdout capture is denied, and process
-   enumeration (`Get-Process` by name, `tasklist`, CIM) is denied. A sandboxed run of a
-   console-flash probe produced "all four combinations identical" — a **meaningless** result that
-   looked like evidence against a real bug.
+1. **Measuring from inside the agent is structurally invalid.** Writes outside the session
+   workspace are denied (`EPERM` at `prepareProfile`, and `--dump-config` hits the same wall),
+   piped-stdout capture is denied, `tasklist` and several WMI system classes are denied, and TLS
+   from a child fails with `SEC_E_NO_CREDENTIALS`. A sandboxed run of a console-flash probe
+   produced "all four combinations identical" — a **meaningless** result that looked like evidence
+   against a real bug. Full measured table: [docs/dsh-sandbox.md](docs/dsh-sandbox.md).
 2. **A sandboxed measurement of a stock profile read 37–48 s / 55–70 % CPU** while the same real
    object outside the sandbox was 21.6 s / 108 %. The sandbox inflates wall time without inflating
    CPU, so the ratio lands in the wrong band. See [playbook 0002](playbooks/0002-sandbox-measurements-lie.md).
@@ -79,6 +88,10 @@ Keep these in mind before starting a new investigation.
    the helper module loaded. Only `MainWindowHandle` answers the console question.
 6. **`dsh-web.log` has no timestamps.** It can tell you *whether* something was skipped, never
    *how long* a startup took. Use the restart-helper log for wall-clock, and measure for real numbers.
+7. **Version-dependent claims rot silently.** One older note in this repo said a patch edit reloads
+   live via `patchReload: live`; on 0.2.1-rc.5 that key does not exist anywhere in the shipped code.
+   When you write "no restart needed", record the version — see
+   [docs/dsh-diagnostics.md](docs/dsh-diagnostics.md).
 
 ## Handing this over
 
