@@ -65,27 +65,45 @@ Details: [`cases/2026-09-18-dsh-plugin-not-showing/`](cases/2026-09-18-dsh-plugi
 | 3 | Re-check after every `dsh` upgrade | patch #2 is silently reverted by upgrades | if the flash returns at ~4 s intervals, it is this |
 | 4 | Suggest a configurable poll interval to `dsh-gitea` | 4000 ms is hard-coded = 900 `git` spawns/hour for nothing | — |
 
-## Linux track (added 2026-11-02)
+## Linux track (added 2026-11-02; second pass same day)
 
 | | |
 |---|---|
 | OS | Ubuntu 26.04.1 LTS, GNOME Shell 50.1, Wayland |
-| App | Token Monitor **0.84.0** AppImage, integrated by Gear Lever 4.6.2 |
+| Apps | Token Monitor **0.84.0** (Electron AppImage), eyeShell **0.1.5** (jpackage/Compose AppImage) |
+| Integrator | **AppImageLauncher 3.0.0-beta-2** (git `96cb937`) on this workstation. The first Linux case documents Gear Lever 4.6.2; Gear Lever is **not installed** here, and the generated entry shapes differ (`token_monitor.desktop` vs `appimagekit_<id>-Token_Monitor.desktop`). |
 
-**Settled:** the "gear instead of the app icon" symptom is not an icon problem — it is a window↔entry
-identity mismatch. GNOME matches by `id == app_id + .desktop` or `StartupWMClass == app_id`; the
-integration tool rebuilds the entry from the AppImage's own bundle (wrong `StartupWMClass`) and names
-it from `Name`. Hand edits therefore last exactly one update.
+**Settled — identity:** GNOME matches a window by `id == app_id + .desktop` or
+`StartupWMClass == app_id`; hand edits expire when the integrator regenerates the entry. The first
+case covers that.
 
-**Local fix:** canonical `token-monitor.desktop` + a systemd user path unit that normalises the entry
-whenever it is regenerated (verified against a simulated rewrite in < 5 s). Details:
-[`cases/2026-11-02-appimage-dock-gear-linux/`](cases/2026-11-02-appimage-dock-gear-linux/) and
-[playbook 0006](playbooks/0006-window-identity-not-icon.md).
+**Settled — identity is not sufficient:** the second pass found two more failure modes that the
+two-rule test cannot see:
 
-**Open:** (1) the bundled `.desktop` ships `StartupWMClass=Token Monitor` while the app id is
-`token-monitor` — upstream fix, not filed; (2) Gear Lever copies that key instead of observing the
-real `WM_CLASS`; (3) the guard is local, so re-verify after each AppImage update — a silently broken
-guard looks exactly like the original bug.
+- a structurally invalid entry (no `Type`/`Exec`) is dropped by GLib, so both rules miss and the
+  app disappears from the menu; `desktop-file-validate` names the missing key;
+- two entries can match the same `StartupWMClass`, and the one GNOME binds to can point at an
+  `Icon=` name that was never installed (AppImageLauncher's extraction failed on the eyeShell
+  AppDir). `NoDisplay=true` hides it from the menu, but it did not clear the existing window
+  binding.
+
+**Local fix:** a generic idempotent repairer in the maintenance workspace rebuilds invalid entries,
+normalises every matching entry, hides duplicates, and installs 16–512 icons plus the
+`appimagekit_<id>_<icon>` aliases; a systemd user path unit watches applications + hicolor. Verified
+against a simulated AppImageLauncher rewrite and a simulated 0.84.1 update.
+`probe-desktop-match.sh` now also checks the icon of every match and validates explicitly named
+entries that GLib drops. Details:
+[`cases/2026-11-02-appimage-desktop-structural-repair/`](cases/2026-11-02-appimage-desktop-structural-repair/)
+and [playbook 0006](playbooks/0006-window-identity-not-icon.md).
+
+**Open:** (1) AppImageLauncher 3.0.0-beta-2 fails to extract the eyeShell icon from a jpackage AppDir
+that only has root `eyeshell.png` + `.DirIcon`; packaging the seven sizes under
+`usr/share/icons/hicolor/<size>/apps/eyeshell.png` fixes extraction (verified with `ail-cli`), but
+the AppImage in use was not rebuilt. (2) Token Monitor's bundle still ships
+`StartupWMClass=Token Monitor` while its app_id is `token-monitor`. (3) 0.84.1 was downloaded to the
+updater's pending dir but not installed — re-run the probe after it installs. (4) GNOME may keep the
+old icon in the running window's app object; restart the app / re-login. (5) A silently broken guard
+looks exactly like the original bug — re-verify after updates.
 
 ## Traps that already cost time here
 
@@ -114,6 +132,14 @@ Keep these in mind before starting a new investigation.
    live via `patchReload: live`; on 0.2.1-rc.5 that key does not exist anywhere in the shipped code.
    When you write "no restart needed", record the version — see
    [docs/dsh-diagnostics.md](docs/dsh-diagnostics.md).
+8. **An identity-only probe can say `RESOLVED` while the dock still shows a gear.** It checks which
+   entry matches, not whether that entry is loadable or whether its `Icon=` resolves. The
+   AppImageLauncher case found both: a GLib-null entry and a matched entry with zero icon sizes.
+   Also check `desktop-file-validate` and `GtkIconTheme.lookup_icon()`
+   ([playbook 0006](playbooks/0006-window-identity-not-icon.md)).
+9. **`NoDisplay=true` does not guarantee an entry stops matching windows.** Hidden entries can
+   still match by `StartupWMClass`, and hiding an entry does not clear an existing binding; if the
+   hidden duplicate has a broken `Icon=`, the dock can still show a gear.
 
 ## Handing this over
 

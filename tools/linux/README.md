@@ -7,12 +7,15 @@ different question (desktop entry identity), because that is where the first Lin
 
 | Probe | Question | Needs |
 |---|---|---|
-| [`probe-desktop-match.sh`](probe-desktop-match.sh) | does a window's `app_id` resolve to a `.desktop` entry, and by which of the shell's two rules? | python3 + PyGObject |
+| [`probe-desktop-match.sh`](probe-desktop-match.sh) | does a window's `app_id` resolve to a **usable** `.desktop` entry — by which rule, with every matched entry's `Icon` resolving, and with no invalid entry hiding from GLib? | python3 + PyGObject + Gtk 3 typelib |
 
-Exit code is `0` when resolved, `1` when the window would fall back to the generic icon, so it works
-as a regression check. Used by
-[playbook 0006](../../playbooks/0006-window-identity-not-icon.md) and
-[`cases/2026-11-02-appimage-dock-gear-linux/`](../../cases/2026-11-02-appimage-dock-gear-linux/).
+Exit code is `0` when identity resolves, every matching entry's `Icon` resolves at at least one
+standard size, and no explicit/exec-referencing entry is invalid; `1` when the window would fall back
+to the generic icon or could bind to an entry with a missing icon. It also reports hidden duplicates
+(`NoDisplay=true` may still match windows) and structurally invalid entries that
+`Gio.AppInfo.get_all()` silently drops. Used by [playbook 0006](../../playbooks/0006-window-identity-not-icon.md),
+[`cases/2026-11-02-appimage-dock-gear-linux/`](../../cases/2026-11-02-appimage-dock-gear-linux/) and
+[`cases/2026-11-02-appimage-desktop-structural-repair/`](../../cases/2026-11-02-appimage-desktop-structural-repair/).
 
 ## What is still needed (agent-CLI probes)
 

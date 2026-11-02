@@ -89,7 +89,7 @@ visually.
 
 | Lesson | Why it generalises |
 |---|---|
-| **A wrong icon is an identity mismatch, never an asset bug** | check `app_id` against the two rules before touching any PNG |
+| **A wrong icon is usually identity — but check the asset too** | replay the two rules first, then verify the matched entry is loadable and its `Icon` resolves; a generator can point at a name it never installed |
 | **Generators own the file, you do not** | integration tools (Gear Lever, AppImageLauncher, appimaged) rebuild `.desktop` from the app's own copy on every update; hand edits are temporary |
 | **Two faults can mask each other** | here: wrong `StartupWMClass` *and* wrong file name; fixing either hides the other until the next update |
 | **Verify with the shell's own lookup, not by eye** | GIO reproduces rule 1/2 without a GUI, and can be scripted as a regression check |
@@ -103,3 +103,12 @@ visually.
 - Gear Lever could set `StartupWMClass` from the observed `WM_CLASS` instead of copying the bundle.
 - Re-check after each AppImage update; the guard should make this a non-event, but a silent guard
   failure would look exactly like the original bug.
+
+## Related: second pass with AppImageLauncher
+
+A later pass documents the same symptom on an AppImageLauncher 3.0.0-beta-2 workstation (entry shape
+`appimagekit_<id>-Token_Monitor.desktop`, not `token-monitor.desktop`). That pass found two failure
+modes the identity-only check cannot see: a structurally invalid entry (GLib returns null) and a
+matched entry whose `Icon=` was never extracted. The two-rule model is shared; entry validity and
+icon-asset checks are additive. See
+[`../2026-11-02-appimage-desktop-structural-repair/`](../2026-11-02-appimage-desktop-structural-repair/).
