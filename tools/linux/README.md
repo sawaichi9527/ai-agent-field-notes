@@ -1,9 +1,20 @@
-# tools/linux — status: empty
+# tools/linux — status: 1 probe
 
-No Linux probes have been written yet. Nothing here is tested on Ubuntu; treat this directory as a
-placeholder so the layout does not silently become Windows-only.
+The agent-CLI probes below are still unwritten; the first Linux probe that does exist answers a
+different question (desktop entry identity), because that is where the first Linux case came from.
 
-## What is needed before the first Linux case is written
+## Written
+
+| Probe | Question | Needs |
+|---|---|---|
+| [`probe-desktop-match.sh`](probe-desktop-match.sh) | does a window's `app_id` resolve to a `.desktop` entry, and by which of the shell's two rules? | python3 + PyGObject |
+
+Exit code is `0` when resolved, `1` when the window would fall back to the generic icon, so it works
+as a regression check. Used by
+[playbook 0006](../../playbooks/0006-window-identity-not-icon.md) and
+[`cases/2026-11-02-appimage-dock-gear-linux/`](../../cases/2026-11-02-appimage-dock-gear-linux/).
+
+## What is still needed (agent-CLI probes)
 
 | Windows probe | Linux equivalent | Notes |
 |---|---|---|

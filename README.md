@@ -20,19 +20,21 @@ evidence that you can tell a real root cause from a coincidence.
 
 | Symptom | Tool | OS | Root cause | Write-up |
 |---|---|---|---|---|
+| The dock shows a generic gear icon for an AppImage whose icon is correct | Token Monitor (Electron AppImage) + Gear Lever | Ubuntu 26.04.1 (GNOME 50, Wayland) | desktop id and `StartupWMClass` both differ from the window `app_id`; the integration tool rebuilds the entry from the app's own (wrong) bundle | [case](cases/2026-11-02-appimage-dock-gear-linux/) · [playbook](playbooks/0006-window-identity-not-icon.md) |
 | Startup takes 20+ s, window blank the whole time | DSH | Windows 10 | CPU-bound module loading; cost scales with plugin bundle count | [case](cases/2026-10-30-dsh-slow-startup-win/) · [playbook](playbooks/0001-measure-cpu-vs-wall.md) |
 | A console window flashes every ~4 s and typing in the browser loses characters | DSH + `@goodandready/dsh-gitea` | Windows 10 | `git rev-parse` spawned from a 4 s status poll without `windowsHide` | [case](cases/2026-10-30-dsh-console-flash-win/) · [playbook](playbooks/0003-catch-short-lived-windows.md) |
 | A plugin is installed but never shows up in the marketplace's "installed" list | DSH + `@maxhsu/dsh-forge` | Windows | host-only plugin has no UI panel; the panel also labels it by entry id, not package name | [case](cases/2026-09-18-dsh-plugin-not-showing/) |
 
 ## Playbooks (the reusable part)
 
-These are tool-agnostic. They apply to any agent CLI on any OS unless noted.
+These are tool-agnostic. Unless an entry says otherwise, they apply to any agent CLI on any OS.
 
 1. [Measure CPU-vs-wall before anything else](playbooks/0001-measure-cpu-vs-wall.md) — one ratio splits "busy" from "waiting"
 2. [Sandbox measurements lie](playbooks/0002-sandbox-measurements-lie.md) — never classify from inside the agent's sandbox
 3. [Catch short-lived windows when process polling fails](playbooks/0003-catch-short-lived-windows.md)
 4. [Separate causes that share the same symptom](playbooks/0004-separate-correlated-causes.md)
 5. [On Windows, stdio decides whether a console appears — not `windowsHide`](playbooks/0005-windows-console-window-rules.md)
+6. [A wrong window icon is an identity mismatch, not an asset bug](playbooks/0006-window-identity-not-icon.md) — on Linux, the shell matches windows to entries by id or `StartupWMClass`
 
 ## Docs (product-specific reference)
 

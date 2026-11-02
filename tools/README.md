@@ -13,7 +13,8 @@ Read [`win/README.md`](win/README.md) for per-script status and limits before ru
 | Which process creates the console window that keeps flashing? | [`win/watch-console-windows.ps1`](win/watch-console-windows.ps1) | nothing (read-only) | Windows |
 | Does this two-hop spawn chain create a **visible** console? | [`win/probe-console-visible.ps1`](win/probe-console-visible.ps1) | a normal (non-sandboxed) terminal | Windows |
 | Which **one** spawn option changes the behaviour? | [`win/isolate-spawn-options.ps1`](win/isolate-spawn-options.ps1) | a normal terminal | Windows |
-| — | [`linux/README.md`](linux/README.md) — nothing written yet, and why | — | Linux |
+| Does a window's `app_id` resolve to a `.desktop` entry (wrong icon / no dock grouping)? | [`linux/probe-desktop-match.sh`](linux/probe-desktop-match.sh) | python3 + PyGObject | Linux |
+| — | [`linux/README.md`](linux/README.md) — the agent-CLI probes are still unwritten, and why | — | Linux |
 
 ## Conventions
 

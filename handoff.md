@@ -3,7 +3,7 @@
 State transfer document. `README.md` says what this repo is; **this file says where things stand**
 and what the next person (usually future me) has to do.
 
-Last updated: 2026-10-30 (Asia/Taipei)
+Last updated: 2026-11-02 (Asia/Taipei)
 
 ## Baseline environment
 
@@ -64,6 +64,28 @@ Details: [`cases/2026-09-18-dsh-plugin-not-showing/`](cases/2026-09-18-dsh-plugi
 | 2 | **A/B `dsh` 0.2.0 vs 0.2.1 startup** | proves or disproves "the upgrade made it slower" — never measured, only assumed | npm cache still holds a `dsh-0.2.0` tarball; install to a separate prefix, measure both against one isolated `DSH_HOME` |
 | 3 | Re-check after every `dsh` upgrade | patch #2 is silently reverted by upgrades | if the flash returns at ~4 s intervals, it is this |
 | 4 | Suggest a configurable poll interval to `dsh-gitea` | 4000 ms is hard-coded = 900 `git` spawns/hour for nothing | — |
+
+## Linux track (added 2026-11-02)
+
+| | |
+|---|---|
+| OS | Ubuntu 26.04.1 LTS, GNOME Shell 50.1, Wayland |
+| App | Token Monitor **0.84.0** AppImage, integrated by Gear Lever 4.6.2 |
+
+**Settled:** the "gear instead of the app icon" symptom is not an icon problem — it is a window↔entry
+identity mismatch. GNOME matches by `id == app_id + .desktop` or `StartupWMClass == app_id`; the
+integration tool rebuilds the entry from the AppImage's own bundle (wrong `StartupWMClass`) and names
+it from `Name`. Hand edits therefore last exactly one update.
+
+**Local fix:** canonical `token-monitor.desktop` + a systemd user path unit that normalises the entry
+whenever it is regenerated (verified against a simulated rewrite in < 5 s). Details:
+[`cases/2026-11-02-appimage-dock-gear-linux/`](cases/2026-11-02-appimage-dock-gear-linux/) and
+[playbook 0006](playbooks/0006-window-identity-not-icon.md).
+
+**Open:** (1) the bundled `.desktop` ships `StartupWMClass=Token Monitor` while the app id is
+`token-monitor` — upstream fix, not filed; (2) Gear Lever copies that key instead of observing the
+real `WM_CLASS`; (3) the guard is local, so re-verify after each AppImage update — a silently broken
+guard looks exactly like the original bug.
 
 ## Traps that already cost time here
 
