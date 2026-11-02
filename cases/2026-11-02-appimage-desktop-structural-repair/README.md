@@ -1,6 +1,7 @@
 # Case: an AppImage entry can be structurally invalid, and the matched entry's icon can be missing
 
-**Tool:** Token Monitor 0.84.0 and eyeShell 0.1.5 (AppImages, AppImageLauncher 3.0.0-beta-2) ·
+**Tool:** Token Monitor 0.84.0 (updated to 0.84.1 during the investigation) and eyeShell 0.1.5
+(AppImages, AppImageLauncher 3.0.0-beta-2) ·
 **OS:** Ubuntu 26.04.1 LTS, GNOME Shell 50.1, Wayland · **Date:** 2026-11-02
 **Full write-up:** [`write-up.md`](write-up.md) (Chinese, with the exact commands)
 
@@ -114,6 +115,7 @@ A systemd user path unit watches `~/.local/share/applications` and
 | `probe-desktop-match.sh` after fix | — | `RESOLVED (identity + icon asset)`, exit 0 |
 | guard vs simulated AL rewrite | — | corrected; second run `no changes needed` |
 | simulated 0.84.1 update | — | new entry normalised; probe exit 0 |
+| **real 0.84.1 update** (2026-11-02 21:47) | AL wrote its own new `appimagekit_<id>` entry (bundle `StartupWMClass`, unextracted icon name) | guard patched it in ~3 s across two passes; old entry removed; probe exit 0; fixer now `no changes needed` |
 
 ## Transferable lessons
 
@@ -126,6 +128,7 @@ A systemd user path unit watches `~/.local/share/applications` and
 | **Distinguish generator behaviour from corruption** | reproduce the generator in an isolated `HOME` (`ail-cli integrate`); AL appends ` (1)`, it does not drop keys |
 | **A guard must repair structure** | a two-key patch can report success while the entry is unloadable |
 | **Alias icons are cheap insurance** | generating the generator's own icon name (`appimagekit_<id>_<icon>`) rescues cached GIcon strings and races |
+| **A real generator update is multi-step** | AppImageLauncher scheduled, wrote, then re-wrote the entry during deferred integration; the guard ran three times and patched twice before converging. Idempotency is what makes the extra passes safe. |
 | **Prove the guard against the pre-fix state** | the old probe returned 0 on the broken state; a check that cannot fail is not a check |
 
 ## Open
@@ -138,8 +141,6 @@ A systemd user path unit watches `~/.local/share/applications` and
   while its app_id is `token-monitor`.
 - GNOME may keep the old icon in the running window's app object; restart the app (or re-login)
   after changing the entry.
-- Token Monitor 0.84.1 was downloaded to the updater's pending directory but not installed; the
-  repairer was tested against a simulated 0.84.1 entry. Re-run the probe after the real update.
 - The first Linux case documents Gear Lever 4.6.2; the entry shapes differ
   (`token_monitor.desktop` vs `appimagekit_<id>-Token_Monitor.desktop`). The two-rule model is
   shared; the repair mechanics are not.

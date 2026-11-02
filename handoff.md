@@ -70,7 +70,7 @@ Details: [`cases/2026-09-18-dsh-plugin-not-showing/`](cases/2026-09-18-dsh-plugi
 | | |
 |---|---|
 | OS | Ubuntu 26.04.1 LTS, GNOME Shell 50.1, Wayland |
-| Apps | Token Monitor **0.84.0** (Electron AppImage), eyeShell **0.1.5** (jpackage/Compose AppImage) |
+| Apps | Token Monitor **0.84.1** (was 0.84.0), eyeShell **0.1.5** (jpackage/Compose AppImage) |
 | Integrator | **AppImageLauncher 3.0.0-beta-2** (git `96cb937`) on this workstation. The first Linux case documents Gear Lever 4.6.2; Gear Lever is **not installed** here, and the generated entry shapes differ (`token_monitor.desktop` vs `appimagekit_<id>-Token_Monitor.desktop`). |
 
 **Settled — identity:** GNOME matches a window by `id == app_id + .desktop` or
@@ -96,14 +96,17 @@ entries that GLib drops. Details:
 [`cases/2026-11-02-appimage-desktop-structural-repair/`](cases/2026-11-02-appimage-desktop-structural-repair/)
 and [playbook 0006](playbooks/0006-window-identity-not-icon.md).
 
+**Verified on a real update:** Token Monitor 0.84.1 installed at 2026-11-02 21:47. AppImageLauncher
+wrote a new `appimagekit_<id>` entry in stages; the guard patched it twice in ~3 s, the old 0.84.0
+entry was removed, and the probe returns exit 0. No manual edit was needed.
+
 **Open:** (1) AppImageLauncher 3.0.0-beta-2 fails to extract the eyeShell icon from a jpackage AppDir
 that only has root `eyeshell.png` + `.DirIcon`; packaging the seven sizes under
 `usr/share/icons/hicolor/<size>/apps/eyeshell.png` fixes extraction (verified with `ail-cli`), but
 the AppImage in use was not rebuilt. (2) Token Monitor's bundle still ships
-`StartupWMClass=Token Monitor` while its app_id is `token-monitor`. (3) 0.84.1 was downloaded to the
-updater's pending dir but not installed — re-run the probe after it installs. (4) GNOME may keep the
-old icon in the running window's app object; restart the app / re-login. (5) A silently broken guard
-looks exactly like the original bug — re-verify after updates.
+`StartupWMClass=Token Monitor` while its app_id is `token-monitor`. (3) GNOME may keep the old icon
+in the running window's app object; restart the app / re-login. (4) A silently broken guard looks
+exactly like the original bug — re-verify after updates.
 
 ## Traps that already cost time here
 

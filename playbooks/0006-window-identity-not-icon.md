@@ -72,7 +72,10 @@ on every install and every update. Consequences:
 - hand-editing that file is a fix with an expiry date;
 - a wrong key in the bundle propagates to every user of every integration tool;
 - the file **name** may be derived from `Name` (`Token Monitor` → `token_monitor.desktop`), which
-  can break rule 1 even if the bundle's file name was correct.
+  can break rule 1 even if the bundle's file name was correct;
+- a real update can write the entry **more than once** (AppImageLauncher schedules the change,
+  writes the entry, then re-writes it during its deferred integration); an idempotent guard
+  converges over several passes, a one-shot fix does not.
 
 So: fix identity, and if a generator owns the file, guard it.
 

@@ -1,8 +1,9 @@
 # AppImage 桌面捷徑：entry 結構壞掉、兩個 entry、抽不到的圖示（GNOME 50 / Wayland）
 
 > 環境：Ubuntu 26.04.1 LTS、GNOME Shell 50.1、Wayland、**AppImageLauncher 3.0.0-beta-2**
-> （git commit `96cb937`）。Token Monitor **0.84.0**、eyeShell **0.1.5**（jpackage／Compose
-> Desktop AppImage）。2026-11-01 修正，2026-11-02 補測與整理。
+> （git commit `96cb937`）。Token Monitor **0.84.0 → 0.84.1**、eyeShell **0.1.5**（jpackage／Compose
+> Desktop AppImage）。2026-11-01 修正，2026-11-02 補測與整理；0.84.1 真實更新已於 2026-11-02 21:47
+> 驗證（§6.4）。
 >
 > 這是本 repo 的第二個 Linux case。第一個
 > [`2026-11-02-appimage-dock-gear-linux`](../2026-11-02-appimage-dock-gear-linux/) 記錄的是
@@ -241,6 +242,7 @@ case 的 `token-monitor.desktop` 不適用。**不同 integrator 會產生不同
 | 新 probe 對修正後狀態 | — | `RESOLVED (identity + icon asset)` / exit 0 |
 | 模擬 AL 改寫 | — | 自動修正；第二次執行 `no changes needed` |
 | 模擬 0.84.1 更新 | — | 新 entry 被正規化；probe exit 0 |
+| **真實 0.84.1 更新**（2026-11-02 21:47） | AL 先寫一次新 entry（bundle 值） | 守衛兩次修正、舊 entry 移除；probe exit 0 |
 
 ### 6.2 新 probe 的輸出
 
@@ -270,10 +272,10 @@ verdict: RESOLVED (identity + icon asset)
 exit=0
 ```
 
-### 6.3 模擬 0.84.1（pending，尚未安裝）
+### 6.3 模擬 0.84.1（更新前）
 
 Token Monitor 的 updater 在 2026-11-02 21:03 把 0.84.1 下載到
-`~/.cache/token-monitor-updater/pending/`，但還沒安裝。用隔離 `HOME` 建一個 0.84.1 的 entry
+`~/.cache/token-monitor-updater/pending/`，但當時還沒安裝。用隔離 `HOME` 建一個 0.84.1 的 entry
 （新的 `appimagekit_<id>`、`Name=Token Monitor (0.84.1) (1)`、`StartupWMClass=Token Monitor`）
 餵給修復器：
 
@@ -282,7 +284,37 @@ patched appimagekit_<id>-Token_Monitor.desktop -> Name=Token Monitor Icon=token-
 verify icon token-monitor @16,24,32,… -> OK
 ```
 
-probe 也回 `RESOLVED (identity + icon asset)` / exit 0。**真正安裝後還要再跑一次。**
+probe 也回 `RESOLVED (identity + icon asset)` / exit 0。幾小時後這個模擬被真實更新驗證（§6.4）。
+
+### 6.4 真實 0.84.1 更新（2026-11-02 21:47）
+
+Updater 觸發更新後，AppImageLauncher 先 unintegrate 0.84.0、再 integrate 0.84.1；新的
+identifier 是 `<id>`。journal：
+
+```text
+21:46:55 appimagelauncherd: Scheduling for unintegration: …/Token-Monitor-0.84.0_<hash>.AppImage
+21:46:58 appimagelauncherd: Scheduling for (re-)integration: …/Token-Monitor-0.84.1_<hash>.AppImage
+21:47:01 appimage-desktop-fix: patched appimagekit_<id>-Token_Monitor.desktop -> Name=Token Monitor Icon=token-monitor StartupWMClass=token-monitor NoDisplay=false
+21:47:10 appimagelauncherd: Integrating: …/Token-Monitor-0.84.1_<hash>.AppImage
+21:47:10 appimagelauncherd: Extracting usr/share/icons/hicolor/1024x1024/apps/token-monitor.png to …/appimagekit_<id>_token-monitor.png
+21:47:10 appimagelauncherd: Cleaning up old desktop integration files
+21:47:13 appimage-desktop-fix: patched appimagekit_<id>-Token_Monitor.desktop -> …（第二次）
+21:47:13 appimage-desktop-fix: verify icon token-monitor @16,…,512 -> OK
+```
+
+結果：
+
+- `~/.local/share/applications/` 只剩新的 `appimagekit_<id>-Token_Monitor.desktop`；舊 0.84.0
+  entry 已被 AL 移除。
+- `Exec`/`TryExec` 指向 `~/Applications/Token-Monitor-0.84.1_<hash>.AppImage`；
+  `Name=Token Monitor`、`Icon=token-monitor`、`StartupWMClass=token-monitor`、`NoDisplay=false`。
+- `appimagekit_<id>_token-monitor.png` 的 16–512 別名已生成。
+- `desktop-file-validate` OK；probe 回 `RESOLVED (identity + icon asset)` / exit 0。
+- 再跑一次修復器：`no changes needed`。
+
+觀察：AL 的 integration 是**分段**的（先寫 entry，稍後 deferred operations 再寫一次），所以
+守衛在這次更新跑了三次、修了兩次才收斂。冪等 + path unit 讓這是安全的；如果守衛只做一次，
+第二次 AL 寫回時就會復發。
 
 ---
 
@@ -294,7 +326,7 @@ probe 也回 `RESOLVED (identity + icon asset)` / exit 0。**真正安裝後還�
   Wayland 時沒有直接讀 app_id。兩者的 `StartupWMClass` 都是既有實測值，修法只依賴字串。
 - **GNOME 對已存在視窗的圖示快取**：修 entry 後，執行中的視窗不一定立刻換圖示；重啟 app
   或重新登入是最後一步。
-- **0.84.1 真實更新**：只做了模擬，因為 app 還沒安裝 pending 的版本。
+- **0.84.1 真實更新**：已於 2026-11-02 21:47 發生並驗證（見 §6.4）；沒有再手動改任何 entry。
 
 ---
 
