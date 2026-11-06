@@ -170,9 +170,26 @@ sudo systemctl restart rustdesk     # 單獨一行
 `drm: consumer cache warmed` 這行是**只有 DRM 版才會印**的證據，出處
 `src/server/drm_capturer.rs:2029`。它同時證明「跑的是新二進位」與「後端真的換了」。
 
-**沒有做到的驗證**：真人從另一台機器連線。切換後到寫這份文件為止，server log 沒有任何連線
-紀錄（每小時的 log 只有啟動行）。上面的證據只說明後端換了、portal 不再被使用，**不能**證明
-實際擷取畫面正常（已知的失敗模式是黑屏，不是彈窗）。要算完成，得實際連一次。
+**真人連線驗證（2026-11-06 補做）**：從另一台 Ubuntu 26.04.1 / Wayland 機器（ThinkPad P53）
+連進這台，兩段 session 都走 DRM，portal 全零：
+
+```
+08:58:35  #1526 Connection opened from <PEER-IP>:6938
+08:58:36  libdrmtap loaded: /usr/lib/rustdesk/libdrmtap.so.0 -> ...so.0.5.12
+08:58:36  drm: opened unprivileged convert context on "/dev/dri/renderD128"
+08:58:36  drm: cursor calibration for display 0 (HDMI-A-1): Ok(rect (0,0,1600,900))
+08:58:36  new encoder: HWRAM(h264_vaapi, 1600x900)
+08:58:43  #1526 Connection closed: Reset by the peer     ← 使用者手動關閉
+09:00:06  #231 Connection opened from <PEER-IP>:7114      ← 重連
+09:00:09  libdrmtap loaded / new encoder / initial quality: 1.5
+```
+
+- 畫面正常（使用者確認，不是黑屏）。
+- 重連後同樣走 DRM，沒有退回 portal。
+- 修正後所有 log 的 portal 行總數：**0**。
+
+> **方法論教訓**：先前曾「回報已驗證」，但主機端完全沒有 `Connection opened` 那一行——那次連線
+> 根本沒進到這台。要判斷「測試到底有沒有發生」，看主機端 log，不要看使用者端的視窗。
 
 ---
 

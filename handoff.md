@@ -118,10 +118,13 @@ DRM backend line (`drm: consumer cache warmed`) plus the absence of portal reque
 [`cases/2026-11-04-rustdesk-wayland-unattended/`](cases/2026-11-04-rustdesk-wayland-unattended/)
 and [playbook 0007](playbooks/0007-same-version-different-artifact.md).
 
-**Open (RustDesk):** (1) the end-to-end connection test was never run after the switch — no
-connection appears in the logs, so "consent gone, picture correct" is unproven; (2) every future
-upgrade must take the `rustdesk-unattended-wayland-<version>-x86_64.deb` asset, and nothing enforces
-that — a wrapper that refuses the standard deb would; (3) the variant is x86_64-only as of 1.5.1.
+**Verified end-to-end (2026-11-06):** two live sessions from a separate Ubuntu 26.04.1 / Wayland
+machine. Both took the DRM path (`libdrmtap` 0.5.12, `h264_vaapi`, cursor calibration), **0** portal
+requests across every log since the switch, picture normal, reconnect normal.
+
+**Open (RustDesk):** (1) every future upgrade must take the
+`rustdesk-unattended-wayland-<version>-x86_64.deb` asset, and nothing enforces that — a wrapper that
+refuses the standard deb would; (2) the variant is x86_64-only as of 1.5.1.
 
 ## Traps that already cost time here
 

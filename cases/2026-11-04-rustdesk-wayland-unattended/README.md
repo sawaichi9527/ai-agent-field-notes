@@ -75,16 +75,29 @@ tools/linux/probe-package-variant.sh rustdesk rustdesk-unattended-wayland '/usr/
 | variant package state | `installed`; base is `config-files only` |
 | capability artifact | `libdrmtap.so.0.5.12` present, owned by the variant |
 | backend actually taken over | `drm: consumer cache warmed (1 displays) at startup` (`src/server/drm_capturer.rs:2029`) |
-| portal requests after the switch | none in any log written after the restart |
+| portal requests after the switch | 0 across every log written since, including two live sessions |
 | RustDesk ID | unchanged (`enc_id` identical before and after) |
 | display present for DRM to scan out | `card1-HDMI-A-1 connected`, matching `1 displays` |
 | desktop kept awake (DRM needs a live CRTC) | `idle-delay=0`, `sleep-inactive-ac-type=nothing` |
 
-**Not verified: a live connection from another machine.** No connection was attempted between the
-switch and this write-up — the hourly server logs contain startup lines only. The evidence above
-shows the DRM backend took over and the portal path is no longer exercised at startup; it does not
-prove that a real session captures correctly (the known failure mode is a black frame, not a
-dialog). Test it before calling it done.
+**Verified end-to-end (2026-11-06):** two live sessions from a separate Ubuntu 26.04.1 / Wayland
+machine (ThinkPad P53 → this host), both over WebRTC:
+
+| | session 1 | session 2 (reconnect) |
+|---|---|---|
+| connection | `#1526 Connection opened` 08:58:35 | `#231 Connection opened` 09:00:06 |
+| backend | `libdrmtap loaded … 0.5.12`, convert context on `/dev/dri/renderD128`, encoder `h264_vaapi` 1600×900 | same |
+| portal requests | 0 | 0 |
+| picture | normal (user-confirmed) | normal |
+| end | closed by the user at 08:58:43 | still open when checked |
+
+Across every log written since the switch, the `org.freedesktop.portal` / `wl-stage` line count is
+**0**.
+
+One methodological note: an earlier attempt reported as "already verified" left **no**
+`Connection opened` line on the host at all — the connection never reached this machine, so "no
+consent dialog" proved nothing. The host-side line, not the client's window, decides whether a test
+actually happened.
 
 ## Transferable lessons
 
@@ -98,7 +111,6 @@ dialog). Test it before calling it done.
 
 ## Open
 
-- The end-to-end connection test (consent gone, picture correct, repeat connection) — see above.
 - The standard package remains in `config-files only` state; `dpkg --purge rustdesk` would tidy it,
   but it is also a live reminder of which package is authoritative.
 - Pin the upgrade path: every future release must be taken from the
