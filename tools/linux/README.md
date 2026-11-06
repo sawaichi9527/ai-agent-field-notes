@@ -1,13 +1,15 @@
-# tools/linux — status: 1 probe
+# tools/linux — status: 2 probes
 
-The agent-CLI probes below are still unwritten; the first Linux probe that does exist answers a
-different question (desktop entry identity), because that is where the first Linux case came from.
+The agent-CLI probes below are still unwritten; the two Linux probes that do exist answer
+different questions (desktop entry identity, package variant identity), because those are where
+the Linux cases came from.
 
 ## Written
 
 | Probe | Question | Needs |
 |---|---|---|
 | [`probe-desktop-match.sh`](probe-desktop-match.sh) | does a window's `app_id` resolve to a **usable** `.desktop` entry — by which rule, with every matched entry's `Icon` resolving, and with no invalid entry hiding from GLib? | python3 + PyGObject + Gtk 3 typelib |
+| [`probe-package-variant.sh`](probe-package-variant.sh) | of two conflicting packages, which is installed, and does it own the file that carries the capability? | dpkg (read-only) |
 
 Exit code is `0` when identity resolves, every matching entry's `Icon` resolves at at least one
 standard size, and no explicit/exec-referencing entry is invalid; `1` when the window would fall back
@@ -16,6 +18,11 @@ to the generic icon or could bind to an entry with a missing icon. It also repor
 `Gio.AppInfo.get_all()` silently drops. Used by [playbook 0006](../../playbooks/0006-window-identity-not-icon.md),
 [`cases/2026-11-02-appimage-dock-gear-linux/`](../../cases/2026-11-02-appimage-dock-gear-linux/) and
 [`cases/2026-11-02-appimage-desktop-structural-repair/`](../../cases/2026-11-02-appimage-desktop-structural-repair/).
+
+`probe-package-variant.sh` exits `0` when the variant package is installed **and** owns the
+capability artifact, `1` otherwise — usable as an upgrade guard. Used by
+[playbook 0007](../../playbooks/0007-same-version-different-artifact.md) and
+[`cases/2026-11-04-rustdesk-wayland-unattended/`](../../cases/2026-11-04-rustdesk-wayland-unattended/).
 
 ## What is still needed (agent-CLI probes)
 

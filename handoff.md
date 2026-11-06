@@ -3,7 +3,7 @@
 State transfer document. `README.md` says what this repo is; **this file says where things stand**
 and what the next person (usually future me) has to do.
 
-Last updated: 2026-11-02 (Asia/Taipei)
+Last updated: 2026-11-06 (Asia/Taipei)
 
 ## Baseline environment
 
@@ -107,6 +107,21 @@ the AppImage in use was not rebuilt. (2) Token Monitor's bundle still ships
 `StartupWMClass=Token Monitor` while its app_id is `token-monitor`. (3) GNOME may keep the old icon
 in the running window's app object; restart the app / re-login. (4) A silently broken guard looks
 exactly like the original bug — re-verify after updates.
+
+**Settled — RustDesk (2026-11-04):** "RustDesk asks for screen-capture consent again after
+updating to 1.5.1" is not a regression. The unattended capability ships in a **separate package**
+(`rustdesk-unattended-wayland`) that is `Conflicts/Replaces` with the standard `rustdesk` package
+**at the same version number**; installing the standard deb silently removed it and capture fell
+back to the XDG Desktop Portal. Fixed by reinstalling the variant deb for 1.5.1 and confirming the
+DRM backend line (`drm: consumer cache warmed`) plus the absence of portal requests. New probe:
+`tools/linux/probe-package-variant.sh`. Details:
+[`cases/2026-11-04-rustdesk-wayland-unattended/`](cases/2026-11-04-rustdesk-wayland-unattended/)
+and [playbook 0007](playbooks/0007-same-version-different-artifact.md).
+
+**Open (RustDesk):** (1) the end-to-end connection test was never run after the switch — no
+connection appears in the logs, so "consent gone, picture correct" is unproven; (2) every future
+upgrade must take the `rustdesk-unattended-wayland-<version>-x86_64.deb` asset, and nothing enforces
+that — a wrapper that refuses the standard deb would; (3) the variant is x86_64-only as of 1.5.1.
 
 ## Traps that already cost time here
 
