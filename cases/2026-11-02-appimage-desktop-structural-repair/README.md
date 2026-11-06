@@ -116,6 +116,7 @@ A systemd user path unit watches `~/.local/share/applications` and
 | guard vs simulated AL rewrite | — | corrected; second run `no changes needed` |
 | simulated 0.84.1 update | — | new entry normalised; probe exit 0 |
 | **real 0.84.1 update** (2026-11-02 21:47) | AL wrote its own new `appimagekit_<id>` entry (bundle `StartupWMClass`, unextracted icon name) | guard patched it in ~3 s across two passes; old entry removed; probe exit 0; fixer now `no changes needed` |
+| **real 0.87.0 update** (2026-11-06 22:34) | AL produced two `appimagekit_*` entries for the same 0.87.0 AppImage | guard kept one visible and hid the duplicate; both icons resolve; probe exit 0 |
 
 ## Transferable lessons
 
@@ -129,6 +130,7 @@ A systemd user path unit watches `~/.local/share/applications` and
 | **A guard must repair structure** | a two-key patch can report success while the entry is unloadable |
 | **Alias icons are cheap insurance** | generating the generator's own icon name (`appimagekit_<id>_<icon>`) rescues cached GIcon strings and races |
 | **A real generator update is multi-step** | AppImageLauncher scheduled, wrote, then re-wrote the entry during deferred integration; the guard ran three times and patched twice before converging. Idempotency is what makes the extra passes safe. |
+| **Deleting a test shortcut is not enough** | AppImageLauncher re-integrates any AppImage left in `~/Applications`; trash/move the test AppImage too, or the entry comes back on the next pass. |
 | **Prove the guard against the pre-fix state** | the old probe returned 0 on the broken state; a check that cannot fail is not a check |
 
 ## Open

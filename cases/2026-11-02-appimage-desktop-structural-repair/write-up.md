@@ -1,9 +1,9 @@
 # AppImage 桌面捷徑：entry 結構壞掉、兩個 entry、抽不到的圖示（GNOME 50 / Wayland）
 
 > 環境：Ubuntu 26.04.1 LTS、GNOME Shell 50.1、Wayland、**AppImageLauncher 3.0.0-beta-2**
-> （git commit `96cb937`）。Token Monitor **0.84.0 → 0.84.1**、eyeShell **0.1.5**（jpackage／Compose
-> Desktop AppImage）。2026-11-01 修正，2026-11-02 補測與整理；0.84.1 真實更新已於 2026-11-02 21:47
-> 驗證（§6.4）。
+> （git commit `96cb937`）。Token Monitor **0.84.0 → 0.84.1 → 0.87.0**、eyeShell **0.1.5**
+> （jpackage／Compose Desktop AppImage）。2026-11-01 修正，2026-11-02 補測與整理；0.84.1 真實更新
+> 已於 2026-11-02 21:47 驗證（§6.4），0.87.0 於 2026-11-06 驗證（§6.5）。
 >
 > 這是本 repo 的第二個 Linux case。第一個
 > [`2026-11-02-appimage-dock-gear-linux`](../2026-11-02-appimage-dock-gear-linux/) 記錄的是
@@ -316,6 +316,13 @@ identifier 是 `<id>`。journal：
 守衛在這次更新跑了三次、修了兩次才收斂。冪等 + path unit 讓這是安全的；如果守衛只做一次，
 第二次 AL 寫回時就會復發。
 
+### 6.5 真實 0.87.0 更新（2026-11-06 22:34）
+
+AppImageLauncher 這次產生了兩個同指 0.87.0 的 `appimagekit_*` entry（一個可見、一個重複）。
+守衛把可見的那個正規化，重複的設為 `NoDisplay=true`；兩個 entry 的 `Icon=token-monitor` 在
+16–512 都查得到，probe 回 `RESOLVED (identity + icon asset)` / exit 0。舊 0.84.1 entry 已被 AL
+移除，`~/Applications` 只剩 0.87.0 的 AppImage。
+
 ---
 
 ## 7. 沒有驗證到的事
@@ -326,7 +333,8 @@ identifier 是 `<id>`。journal：
   Wayland 時沒有直接讀 app_id。兩者的 `StartupWMClass` 都是既有實測值，修法只依賴字串。
 - **GNOME 對已存在視窗的圖示快取**：修 entry 後，執行中的視窗不一定立刻換圖示；重啟 app
   或重新登入是最後一步。
-- **0.84.1 真實更新**：已於 2026-11-02 21:47 發生並驗證（見 §6.4）；沒有再手動改任何 entry。
+- **0.84.1 / 0.87.0 真實更新**：0.84.1 於 2026-11-02 21:47、0.87.0 於 2026-11-06 22:34 發生並
+  驗證（見 §6.4、§6.5）；沒有再手動改任何 entry。
 
 ---
 

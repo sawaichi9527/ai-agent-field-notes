@@ -70,7 +70,7 @@ Details: [`cases/2026-09-18-dsh-plugin-not-showing/`](cases/2026-09-18-dsh-plugi
 | | |
 |---|---|
 | OS | Ubuntu 26.04.1 LTS, GNOME Shell 50.1, Wayland |
-| Apps | Token Monitor **0.84.1** (was 0.84.0), eyeShell **0.1.5** (jpackage/Compose AppImage) |
+| Apps | Token Monitor **0.87.0** (0.84.1 → 0.87.0; both updates handled by the guard), eyeShell **0.1.5** (jpackage/Compose AppImage) |
 | Integrator | **AppImageLauncher 3.0.0-beta-2** (git `96cb937`) on this workstation. The first Linux case documents Gear Lever 4.6.2; Gear Lever is **not installed** here, and the generated entry shapes differ (`token_monitor.desktop` vs `appimagekit_<id>-Token_Monitor.desktop`). |
 
 **Settled — identity:** GNOME matches a window by `id == app_id + .desktop` or
@@ -96,9 +96,10 @@ entries that GLib drops. Details:
 [`cases/2026-11-02-appimage-desktop-structural-repair/`](cases/2026-11-02-appimage-desktop-structural-repair/)
 and [playbook 0006](playbooks/0006-window-identity-not-icon.md).
 
-**Verified on a real update:** Token Monitor 0.84.1 installed at 2026-11-02 21:47. AppImageLauncher
-wrote a new `appimagekit_<id>` entry in stages; the guard patched it twice in ~3 s, the old 0.84.0
-entry was removed, and the probe returns exit 0. No manual edit was needed.
+**Verified on real updates:** Token Monitor 0.84.1 installed at 2026-11-02 21:47, and 0.87.0 at
+2026-11-06 22:34. AppImageLauncher wrote the new entries in stages; the guard patched them and
+removed the old 0.84.0 entry. The 0.87.0 update produced two `appimagekit_*` entries; the guard kept
+one visible and hid the duplicate. The probe returns exit 0 in both cases. No manual edit was needed.
 
 **Open:** (1) AppImageLauncher 3.0.0-beta-2 fails to extract the eyeShell icon from a jpackage AppDir
 that only has root `eyeshell.png` + `.DirIcon`; packaging the seven sizes under
@@ -161,6 +162,11 @@ Keep these in mind before starting a new investigation.
 9. **`NoDisplay=true` does not guarantee an entry stops matching windows.** Hidden entries can
    still match by `StartupWMClass`, and hiding an entry does not clear an existing binding; if the
    hidden duplicate has a broken `Icon=`, the dock can still show a gear.
+10. **Agent-driven AppImage testing accumulates menu entries.** Every AppImage dropped into
+    `~/Applications` is integrated as its own `appimagekit_*` entry; deleting the entry alone makes
+    AppImageLauncher re-create it on its next pass. Trash/move the test AppImage too. On 2026-11-03
+    an eyePageFlow test session left seven `eyePageFlow` entries plus a synthetic `mini` AppImage
+    (`AppRun` was literally `echo "mini ok: $@"`); all were trashed on 2026-11-06.
 
 ## Handing this over
 
