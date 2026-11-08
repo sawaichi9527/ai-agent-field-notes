@@ -3,7 +3,7 @@
 State transfer document. `README.md` says what this repo is; **this file says where things stand**
 and what the next person (usually future me) has to do.
 
-Last updated: 2026-11-06 (Asia/Taipei)
+Last updated: 2026-11-08 (Asia/Taipei)
 
 ## Baseline environment
 
@@ -127,6 +127,29 @@ requests across every log since the switch, picture normal, reconnect normal.
 `rustdesk-unattended-wayland-<version>-x86_64.deb` asset, and nothing enforces that — a wrapper that
 refuses the standard deb would; (2) the variant is x86_64-only as of 1.5.1.
 
+## Self-hosted service maintenance (added 2026-11-08)
+
+Upgraded a self-hosted ForgeJo on a LAN host (`<LAN-IP>`) from 16.0.4 to **17.0.1** — single
+`docker-compose` service, SQLite data volume bind-mounted at `/data/forgejo/data`, reached over SSH
+with a password service account (no sudo).
+
+**Settled — the procedure:** check (read-only) → back up the whole volume *and prove the backup exists*
+(`tar -tzf` + grep for DB/app.ini, not exit code) → `docker compose pull` while the old container runs
+→ `docker compose up -d`. Migrations ran clean, web HTTP 200 on 17.0.1. The six per-owner git symlinks
+were already broken (pointing at a deleted path); rebuilt each to the real `git/repositories/<owner>` —
+all resolve, repo count unchanged at 31. A stale 252 MB dump in the volume was removed (~241 MB freed).
+
+**Settled — the trap:** a backup's writable location and readable subtree are never what you assume.
+`/data/forgejo` was root-owned (write there fails); `data/ssh` was root-`700` (a live `tar` then exits
+non-zero, which *looks* like "no backup"). Write the archive to a path the operator owns (`~/`) and
+`--exclude` the unreadable subtree, then **prove** it with `tar -tzf` + grep. Details:
+[`cases/2026-11-08-forgejo-self-hosted-upgrade/`](cases/2026-11-08-forgejo-self-hosted-upgrade/) and
+[playbook 0008](playbooks/0008-maintain-self-hosted-docker-over-ssh.md).
+
+**Open:** (1) the compose image tag is `17.0` (auto-follows patches) — pin to `17.0.1` if a frozen
+version is wanted; (2) verify no external webhook relies on the deprecated Action-run events, and that
+no document is deep-linked via an absolute repo-root path (both 17.0 breaking changes).
+
 ## Traps that already cost time here
 
 Keep these in mind before starting a new investigation.
@@ -167,6 +190,12 @@ Keep these in mind before starting a new investigation.
     AppImageLauncher re-create it on its next pass. Trash/move the test AppImage too. On 2026-11-03
     an eyePageFlow test session left seven `eyePageFlow` entries plus a synthetic `mini` AppImage
     (`AppRun` was literally `echo "mini ok: $@"`); all were trashed on 2026-11-06.
+11. **A self-hosted service backup can fail silently in two directions.** The archive's *write* target
+    may be a directory the SSH user cannot write (root-owned data root), and a live `tar` may hit a
+    subtree it cannot read (`700`); `tar` then exits non-zero, which *looks* like "no backup" but is
+    only one skipped branch. Write to a path the operator owns and `--exclude` the unreadable subtree,
+    then **prove** the archive with `tar -tzf` + grep for the DB/config/repos — never by exit code. See
+    [playbook 0008](playbooks/0008-maintain-self-hosted-docker-over-ssh.md).
 
 ## Handing this over
 
