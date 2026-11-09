@@ -3,7 +3,7 @@
 State transfer document. `README.md` says what this repo is; **this file says where things stand**
 and what the next person (usually future me) has to do.
 
-Last updated: 2026-11-08 (Asia/Taipei)
+Last updated: 2026-11-09 (Asia/Taipei)
 
 ## Baseline environment
 
@@ -42,6 +42,13 @@ lost characters).
 Fix: add `windowsHide: true` to the `exec` options in `git-local.js` (`readGit` and `writeGit`).
 Verified: **three consecutive restarts, no flash**.
 
+**Recurrence confirmed 2026-11-09:** upgrading `dsh-gitea` 0.7.39 → **0.7.41** replaced the patched
+file and the flash came back (12 `git.exe` console windows in 36 s, 11 visible). Upstream is still
+unfixed — 0.7.41 is `latest`, and `main` still lacks `windowsHide`. Re-applied + restarted:
+**0 console windows in 30 s**. The patch is now
+[`reapply-windowsHide-patch.ps1`](cases/2026-10-30-dsh-console-flash-win/reapply-windowsHide-patch.ps1);
+run it after every `dsh-gitea` update.
+
 Details, evidence and the ready-to-send upstream draft:
 [`cases/2026-10-30-dsh-console-flash-win/`](cases/2026-10-30-dsh-console-flash-win/)
 
@@ -60,9 +67,9 @@ Details: [`cases/2026-09-18-dsh-plugin-not-showing/`](cases/2026-09-18-dsh-plugi
 
 | # | Item | Why it matters | Starting point |
 |---|---|---|---|
-| 1 | **Send the upstream issue to `@goodandready/dsh-gitea`** | the local patch lives in `node_modules` and **will be overwritten on the next plugin upgrade** | draft in `cases/2026-10-30-dsh-console-flash-win/handoff.html` §14 |
+| 1 | **Send the upstream issue to `@goodandready/dsh-gitea`** | the local patch lives in `node_modules` and is **overwritten on every plugin upgrade** — this already happened once (0.7.41) | draft in `cases/2026-10-30-dsh-console-flash-win/handoff.html` §14 |
 | 2 | **A/B `dsh` 0.2.0 vs 0.2.1 startup** | proves or disproves "the upgrade made it slower" — never measured, only assumed | npm cache still holds a `dsh-0.2.0` tarball; install to a separate prefix, measure both against one isolated `DSH_HOME` |
-| 3 | Re-check after every `dsh` upgrade | patch #2 is silently reverted by upgrades | if the flash returns at ~4 s intervals, it is this |
+| 3 | Re-check after every `dsh-gitea` upgrade | patch #2 is silently reverted by upgrades — confirmed on 0.7.41 | run `cases/2026-10-30-dsh-console-flash-win/reapply-windowsHide-patch.ps1`, restart, probe 30 s |
 | 4 | Suggest a configurable poll interval to `dsh-gitea` | 4000 ms is hard-coded = 900 `git` spawns/hour for nothing | — |
 
 ## Linux track (added 2026-11-02; second pass same day)
@@ -196,6 +203,10 @@ Keep these in mind before starting a new investigation.
     only one skipped branch. Write to a path the operator owns and `--exclude` the unreadable subtree,
     then **prove** the archive with `tar -tzf` + grep for the DB/config/repos — never by exit code. See
     [playbook 0008](playbooks/0008-maintain-self-hosted-docker-over-ssh.md).
+12. **A `node_modules` patch has an expiry date: the next upgrade.** The `dsh-gitea` fix was wiped by
+    0.7.39 → 0.7.41 and the symptom returned unchanged. Write the re-apply step down at the same time
+    as the patch (here: `reapply-windowsHide-patch.ps1`), or the second occurrence costs the whole
+    investigation again.
 
 ## Handing this over
 

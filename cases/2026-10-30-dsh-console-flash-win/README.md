@@ -1,6 +1,7 @@
 # Case: a console window flashes every ~4 s and steals focus from the browser
 
 **Tool:** `@deepseek-ai/dsh` 0.2.1-rc.5 + `@goodandready/dsh-gitea` 0.7.39 · **OS:** Windows 10 LTSC 2019 · **Date:** 2026-10-30
+**Re-checked:** 2026-11-09 on `dsh-gitea` **0.7.41** — the upgrade reverted the patch and the flash came back; upstream still unfixed
 **Full write-up:** [`handoff.html`](handoff.html) (includes the falsified hypothesis and the upstream issue draft)
 
 ## Symptom
@@ -45,6 +46,34 @@ Add `windowsHide: true` to the two `exec()` option objects in `lib/git-local.js`
 > The patch lives in `node_modules` and **will be lost when the plugin updates**. The real fix is
 > upstream — draft ready in `handoff.html` §14.
 
+## Recurrence: the upgrade reverted it (2026-11-09)
+
+`dsh-gitea` was upgraded **0.7.39 → 0.7.41**, which replaced `lib/git-local.js` and wiped the patch —
+exactly the failure mode predicted above. The flash returned, so the same probe was re-run on the
+new version:
+
+| | 0.7.39 (2026-10-30) | 0.7.41 (2026-11-09) |
+|---|---|---|
+| `windowsHide` in `git-local.js` | absent → patched | absent again (only `plugin-updater.js:192` has it) |
+| 30–40 s probe | 7 windows, 4 visible | **12 windows in 36 s, 11 visible — all `git.exe`** |
+| Patch + restart | 3 restarts, no flash | re-applied, 1 restart → **0 console windows in 30 s** |
+
+New detail: 0.7.41's `/git-status` handler calls `buildGitSnapshot()` (`git-local.js:171`), which
+runs **six `git` commands in parallel** per request (`rev-parse` ×3, `status`, `log`, `remote`),
+plus `isGitDir()`'s `rev-parse`. The snapshot cache TTL is **2500 ms < the 4000 ms poll**, so it
+never hits — every poll spawns ~7 consoles, which is why the windows arrive in bursts rather than
+one clean 4 s beat.
+
+Upstream status checked 2026-11-09:
+
+- npm `dist-tags.latest` = **0.7.41** (also the installed version)
+- `lib/git-local.js` on `main` still has no `windowsHide`
+- no fix upstream yet; the issue has not been filed by us (draft in `handoff.html` §14)
+
+Because this will happen on every upgrade, the patch is now a script:
+[`reapply-windowsHide-patch.ps1`](reapply-windowsHide-patch.ps1) (idempotent, backs up, `-DryRun`).
+Run it after any `dsh-gitea` update, restart `dsh web`, and re-probe for 30 s.
+
 ## Evidence
 
 | Item | Value |
@@ -71,7 +100,9 @@ Add `windowsHide: true` to the two `exec()` option objects in `lib/git-local.js`
 
 ## Open
 
-- Upstream issue not yet filed (draft in `handoff.html` §14).
+- Upstream issue not yet filed (draft in `handoff.html` §14) — still unfixed in the latest release
+  (0.7.41) as of 2026-11-09.
 - Worth suggesting to the author: make the 4000 ms interval configurable, or drive it from events —
-  900 `git` invocations per hour is pure waste.
-- If the flash returns at a ~4 s cadence after a plugin upgrade, this patch was reverted.
+  900 `git` invocations per hour is pure waste. 0.7.41 made it worse: ~7 spawns per poll.
+- **Recurrence is confirmed, not hypothetical:** if the flash returns after a plugin upgrade,
+  `git-local.js` was replaced. Run `reapply-windowsHide-patch.ps1`, restart, and re-probe.

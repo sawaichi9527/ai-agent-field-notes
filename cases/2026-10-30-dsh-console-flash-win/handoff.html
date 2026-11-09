@@ -86,9 +86,17 @@
   <p style="margin:.6em 0 0;color:var(--muted)">本文前半（第 3–10 節）記錄的是<strong>被否證的假設</strong>：<code>open</code>／<code>dsh-web-app</code> 的 browser handoff 鏈<strong>確實不會</strong>產生 console（四組實驗＋對照組可證）。真正的元凶在完全不同的地方。</p>
 </div>
 
+<div class="box warn">
+  <h3>2026-11-09 覆核：升級到 0.7.41 後補丁被覆蓋，閃爍重現 <span class="tag yes">已再次修復</span></h3>
+  <p>外掛由 <strong>0.7.39 升到 0.7.41</strong>，<code>lib/git-local.js</code> 被整檔替換，兩處 <code>windowsHide</code> 消失，症狀原樣回來（正是第 13.4 節預告的失敗模式）。</p>
+  <p>36 秒取樣：<strong>12 個新 console 視窗、11 個可見，擁有者全是 <code>git.exe</code></strong>；重套補丁並重啟後，同一支探針 30 秒取樣 <strong>0 個 console 視窗</strong>。</p>
+  <p>新細節：0.7.41 的 <code>/git-status</code> 改呼叫 <code>buildGitSnapshot()</code>（<code>git-local.js:171</code>），一次<strong>平行跑 6 個 git 指令</strong>；快照快取 TTL 是 <strong>2500 ms，小於輪詢的 4000 ms</strong>，所以快取永遠不命中 → 一次輪詢約 7 個 spawn，視窗因此成串出現，而不是乾淨的 4 秒一拍。</p>
+  <p>上游 <code>main</code> 與 npm <code>latest</code>（0.7.41）在 2026-11-09 都仍缺 <code>windowsHide</code>；本地改以 <a href="reapply-windowsHide-patch.ps1"><code>reapply-windowsHide-patch.ps1</code></a> 冪等重套，升級後執行即可。</p>
+</div>
+
 <table class="meta">
   <tr><th>建立日期</th><td>2026-10-30（Asia/Taipei）</td></tr>
-  <tr><th>最後更新</th><td>2026-10-30（目標機覆核：假設否證，結論改寫）</td></tr>
+  <tr><th>最後更新</th><td>2026-11-09（升級 0.7.41 後補丁被覆蓋，重套並驗證）</td></tr>
   <tr><th>環境</th><td>Windows 10 Enterprise LTSC 2019（17763.9376）、Node v24.21.0、<code>@deepseek-ai/dsh@0.2.1-rc.5</code></td></tr>
   <tr><th>相關外掛</th><td><code>dsh-power-xc@0.1.6</code>（重啟）、<code>dsh-web-app@0.2.1-rc.5</code>（browser handoff）、<code>open@11.0.4</code>（開啟瀏覽器）</td></tr>
   <tr><th>覆核結果</th><td><strong>H1 否證</strong>：兩個 hop 都不生 console；環境經驗證可建 console、無檔案沙箱，四組模式全無可見 console，使用者亦未觀察到任何閃爍。</td></tr>
@@ -413,7 +421,7 @@ await exec('git', args, { cwd, timeout: 20_000, maxBuffer: 2 * 1024 * 1024 })
 // 修法後
 await exec('git', args, { cwd, timeout: 20_000, maxBuffer: 2 * 1024 * 1024, windowsHide: true })</code></pre>
 <div class="box bad">
-  <strong>這是直接改 <code>node_modules</code>，外掛更新後會被覆蓋。</strong>所以正解是<strong>回報上游</strong>（草稿見第 14 節），本地補丁只當臨時措施。改前請備份：<code>git-local.js</code> → <code>git-local.js.bak</code>。
+  <strong>這是直接改 <code>node_modules</code>，外掛更新後會被覆蓋</strong>——2026-11-09 升級到 0.7.41 時已實際發生（見上方覆核框）。所以正解仍是<strong>回報上游</strong>（草稿見第 14 節），本地補丁只當臨時措施；重套請用 <a href="reapply-windowsHide-patch.ps1"><code>reapply-windowsHide-patch.ps1</code></a>（冪等、自動備份）。
 </div>
 
 <h2 id="newdraft">14. 可送出的 issue 草稿（<code>@goodandready/dsh-gitea</code>）<span class="tag yes">新</span></h2>
@@ -422,7 +430,7 @@ await exec('git', args, { cwd, timeout: 20_000, maxBuffer: 2 * 1024 * 1024, wind
 ## Environment
 - Windows 10 Enterprise LTSC 2019 (17763.9376), Node v24.21.0
 - @deepseek-ai/dsh 0.2.1-rc.5
-- @goodandready/dsh-gitea 0.7.39
+- @goodandready/dsh-gitea 0.7.39 (also reproduced on 0.7.41, 2026-11-09)
 
 ## Steps
 1. Start `dsh web` and open the GUI in a browser (so the status chip starts polling).
