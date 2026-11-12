@@ -126,7 +126,7 @@ rm -f /data/forgejo/data/gitea/forgejo-dump-20260911-223935.zip
 
 1. **備份寫到哪、讀不到什麼，先摸再說。** 別假設路徑 writable/readable；先找到 SSH 帳號真正
    寫得去的地方再動。tar exit 2 不等於「沒備份」，`tar -tzf` + grep 關鍵檔才是真相。
-   （可复用：[playbook 0008](../playbooks/0008-maintain-self-hosted-docker-over-ssh.md)）
+   （可复用：[playbook 0008](../../playbooks/0008-maintain-self-hosted-docker-over-ssh.md)）
 2. **大版本跳躍有 breaking changes。** v17 改了渲染文檔裡絕對連結的基準（repo 根取代 instance
    根）、棄用 Action run webhook（要手動移到 workflow run events）。升級前讀它們、檢查有没有
    相依的 webhook 或深連結文件，並向使用者標出來。這是「改狀態」操作，依序呈現順序與風險，等

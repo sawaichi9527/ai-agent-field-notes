@@ -46,7 +46,7 @@ readable by it either.
 
 ## Lessons
 
-Codified in [playbook 0008](../playbooks/0008-maintain-self-hosted-docker-over-ssh.md) (the
+Codified in [playbook 0008](../../playbooks/0008-maintain-self-hosted-docker-over-ssh.md) (the
 check→backup→apply→verify method, with the backup-permission rule as the centerpiece) and added to
 the [handoff](../../handoff.md) "Traps" list.
 
