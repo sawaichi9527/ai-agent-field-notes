@@ -77,7 +77,7 @@ Details: [`cases/2026-09-18-dsh-plugin-not-showing/`](cases/2026-09-18-dsh-plugi
 | | |
 |---|---|
 | OS | Ubuntu 26.04.1 LTS, GNOME Shell 50.1, Wayland |
-| Apps | Token Monitor **0.87.0** (0.84.1 → 0.87.0; both updates handled by the guard), eyeShell **0.1.5** (jpackage/Compose AppImage) |
+| Apps | Token Monitor **0.91.0** (0.84.1 → 0.87.0 → 0.91.0; all updates handled by the guard), eyeShell **0.1.9** (jpackage/Compose AppImage) |
 | Integrator | **AppImageLauncher 3.0.0-beta-2** (git `96cb937`) on this workstation. The first Linux case documents Gear Lever 4.6.2; Gear Lever is **not installed** here, and the generated entry shapes differ (`token_monitor.desktop` vs `appimagekit_<id>-Token_Monitor.desktop`). |
 
 **Settled — identity:** GNOME matches a window by `id == app_id + .desktop` or
@@ -91,8 +91,8 @@ two-rule test cannot see:
   app disappears from the menu; `desktop-file-validate` names the missing key;
 - two entries can match the same `StartupWMClass`, and the one GNOME binds to can point at an
   `Icon=` name that was never installed (AppImageLauncher's extraction failed on the eyeShell
-  AppDir). `NoDisplay=true` hides it from the menu, but it did not clear the existing window
-  binding.
+  AppDir). `NoDisplay=true` hides it from the menu but not from window matching; remove
+  `StartupWMClass` from the hidden duplicate so only the visible entry matches.
 
 **Local fix:** a generic idempotent repairer in the maintenance workspace rebuilds invalid entries,
 normalises every matching entry, hides duplicates, and installs 16–512 icons plus the
@@ -103,18 +103,25 @@ entries that GLib drops. Details:
 [`cases/2026-11-02-appimage-desktop-structural-repair/`](cases/2026-11-02-appimage-desktop-structural-repair/)
 and [playbook 0006](playbooks/0006-window-identity-not-icon.md).
 
-**Verified on real updates:** Token Monitor 0.84.1 installed at 2026-11-02 21:47, and 0.87.0 at
-2026-11-06 22:34. AppImageLauncher wrote the new entries in stages; the guard patched them and
-removed the old 0.84.0 entry. The 0.87.0 update produced two `appimagekit_*` entries; the guard kept
-one visible and hid the duplicate. The probe returns exit 0 in both cases. No manual edit was needed.
+**Verified on real updates:** Token Monitor 0.84.1 installed at 2026-11-02 21:47, 0.87.0 at
+2026-11-06 22:34, and 0.91.0 at 2026-11-12 20:39. AppImageLauncher wrote the new entries in stages;
+the guard patched them and removed the old entry. The 0.87.0 update produced two `appimagekit_*`
+entries; the guard kept one visible and hid the duplicate. The probe returns exit 0 in all cases.
+
+**Verified — eyeShell 0.1.9 (2026-11-12):** clicking the menu entry did nothing while double-clicking
+the AppImage worked. The entry on disk was already 0.1.9, but (a) the hidden AL duplicate still
+shared `StartupWMClass` and (b) the running GNOME Shell had the 0.1.8 `ShellApp` command cached
+(journal showed the old path; a fresh `Gio` read 0.1.9). Dropping `StartupWMClass` from the hidden
+entry and rebooting fixed both; the user confirmed the menu and dock afterwards.
 
 **Open:** (1) AppImageLauncher 3.0.0-beta-2 fails to extract the eyeShell icon from a jpackage AppDir
 that only has root `eyeshell.png` + `.DirIcon`; packaging the seven sizes under
 `usr/share/icons/hicolor/<size>/apps/eyeshell.png` fixes extraction (verified with `ail-cli`), but
 the AppImage in use was not rebuilt. (2) Token Monitor's bundle still ships
-`StartupWMClass=Token Monitor` while its app_id is `token-monitor`. (3) GNOME may keep the old icon
-in the running window's app object; restart the app / re-login. (4) A silently broken guard looks
-exactly like the original bug — re-verify after updates.
+`StartupWMClass=Token Monitor` while its app_id is `token-monitor`. (3) GNOME caches the `ShellApp`
+command line/icon for the session; after `Exec=`/`Icon=` changes the menu can keep running the old
+path while a fresh `Gio` reads the new one. Log out/in or reboot (or use a new desktop ID). (4) A
+silently broken guard looks exactly like the original bug — re-verify after updates.
 
 **Settled — RustDesk (2026-11-04):** "RustDesk asks for screen-capture consent again after
 updating to 1.5.1" is not a regression. The unattended capability ships in a **separate package**
@@ -216,8 +223,8 @@ Keep these in mind before starting a new investigation.
    Also check `desktop-file-validate` and `GtkIconTheme.lookup_icon()`
    ([playbook 0006](playbooks/0006-window-identity-not-icon.md)).
 9. **`NoDisplay=true` does not guarantee an entry stops matching windows.** Hidden entries can
-   still match by `StartupWMClass`, and hiding an entry does not clear an existing binding; if the
-   hidden duplicate has a broken `Icon=`, the dock can still show a gear.
+   still match by `StartupWMClass`. Remove `StartupWMClass` from the hidden duplicate so only the
+   visible entry matches; patching the hidden entry's icon is a fallback, not the fix.
 10. **Agent-driven AppImage testing accumulates menu entries.** Every AppImage dropped into
     `~/Applications` is integrated as its own `appimagekit_*` entry; deleting the entry alone makes
     AppImageLauncher re-create it on its next pass. Trash/move the test AppImage too. On 2026-11-03
@@ -240,6 +247,11 @@ Keep these in mind before starting a new investigation.
     and overlay rows, then `--dump-config`. A declared patch outliving its package
     (`ERR_PNPM_UNUSED_PATCH`) is the usual blocker — withdraw the declaration before removing
     ([playbook 0009](playbooks/0009-uninstall-failure-is-package-state.md)).
+14. **GNOME Shell caches the `ShellApp` command line for the session.** After an AppImage update the
+    `.desktop` file may correctly point at 0.1.9 while a menu click still executes 0.1.8 and fails
+    (`env: … No such file or directory`); double-clicking the AppImage works because it bypasses the
+    cached entry. A fresh `Gio` process reads the new command. Log out/in or reboot (Wayland has no
+    shell-only restart), or use a new desktop ID to force a fresh app object.
 
 ## Handing this over
 

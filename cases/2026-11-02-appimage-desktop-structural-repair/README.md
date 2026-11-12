@@ -1,8 +1,8 @@
 # Case: an AppImage entry can be structurally invalid, and the matched entry's icon can be missing
 
-**Tool:** Token Monitor 0.84.0 (updated to 0.84.1 during the investigation) and eyeShell 0.1.5
-(AppImages, AppImageLauncher 3.0.0-beta-2) ·
-**OS:** Ubuntu 26.04.1 LTS, GNOME Shell 50.1, Wayland · **Date:** 2026-11-02
+**Tool:** Token Monitor 0.84.0 → 0.91.0 and eyeShell 0.1.5 → 0.1.9 (AppImages,
+AppImageLauncher 3.0.0-beta-2) ·
+**OS:** Ubuntu 26.04.1 LTS, GNOME Shell 50.1, Wayland · **Date:** 2026-11-02 (follow-up 2026-11-12)
 **Full write-up:** [`write-up.md`](write-up.md) (Chinese, with the exact commands)
 
 ## Symptom
@@ -73,6 +73,26 @@ consistent with the running window being bound to it; hiding that entry with `No
 not fix the dock. `NoDisplay` removes an entry from menus — it does not make an existing window
 binding go away.
 
+## Follow-up (2026-11-12) — the entry was correct, the shell cache was not
+
+eyeShell 0.1.9 produced a different-looking symptom: clicking `eyeShell` in the app grid did
+nothing, while double-clicking `~/Applications/eyeShell-0.1.9-x86_64.AppImage` opened normally.
+
+Two things were true at once:
+
+1. The hidden AppImageLauncher entry still carried the same `StartupWMClass` as the visible
+   `eyeshell.desktop`. `NoDisplay=true` removed it from the menu but not from window matching.
+   Fix: remove `StartupWMClass` from the hidden AL entry; only the visible entry may match.
+2. The entry on disk pointed at 0.1.9, but the running GNOME Shell still had the **0.1.8**
+   `ShellApp` command cached. The click failed with
+   `env: '…/eyeShell-0.1.8-x86_64_<old-hash>.AppImage': No such file or directory` in the journal,
+   while a fresh `Gio` process read the 0.1.9 command. Double-clicking worked because it launches
+   the file directly, not the cached desktop entry.
+
+A reboot (logout/login does the same) refreshed the shell cache. User-confirmed afterwards: the
+menu entry launches 0.1.9 and the dock shows the eyeShell icon. This is the case that showed
+"file fixed" and "session fixed" are different states.
+
 ## Why the old probe said "RESOLVED"
 
 On a reconstructed pre-fix state, `tools/linux/probe-desktop-match.sh` printed:
@@ -94,7 +114,8 @@ named entries that GLib silently drops. It exits 1 on the reconstructed pre-fix 
 A generic idempotent repairer (`appimage-desktop-fix.py`, kept in the maintenance workspace) that:
 
 - rebuilds an entry when `Type`/`Exec`/`Name` are missing — it does not assume the file is valid;
-- normalises `Name`, `Icon`, `StartupWMClass`, `Exec`/`TryExec` on **every** entry matching the app;
+- normalises `Name`/`Icon`/`Exec`/`TryExec` and removes `StartupWMClass` from the **hidden**
+  duplicate, so only the visible entry can match the window;
 - keeps one visible entry per app and sets `NoDisplay=true` on duplicates;
 - generates 16–512 icons from the newest source and, for AL, also the
   `appimagekit_<id>_<icon>` alias so a cached GIcon or the AL-native name resolves;
@@ -109,7 +130,7 @@ A systemd user path unit watches `~/.local/share/applications` and
 |---|---|---|
 | `Gio` parse: Token Monitor entry | `null` | `name='Token Monitor' show=true` |
 | `desktop-file-validate` (3 entries) | token: missing `Type` | all OK |
-| entries matching eyeShell WMClass | 2, both visible | 2, one visible, one `NoDisplay` |
+| entries matching eyeShell WMClass | 2, both visible | first fix: 2 (1 visible, 1 `NoDisplay`); follow-up: 1 |
 | icon of the AL eyeShell entry | `appimagekit_<id>_eyeshell`, 0 sizes | `eyeshell`, 16–512 |
 | `probe-desktop-match.sh` on pre-fix state | `RESOLVED`, exit 0 (blind) | `FAIL`, exit 1 (icon missing) |
 | `probe-desktop-match.sh` after fix | — | `RESOLVED (identity + icon asset)`, exit 0 |
@@ -117,6 +138,9 @@ A systemd user path unit watches `~/.local/share/applications` and
 | simulated 0.84.1 update | — | new entry normalised; probe exit 0 |
 | **real 0.84.1 update** (2026-11-02 21:47) | AL wrote its own new `appimagekit_<id>` entry (bundle `StartupWMClass`, unextracted icon name) | guard patched it in ~3 s across two passes; old entry removed; probe exit 0; fixer now `no changes needed` |
 | **real 0.87.0 update** (2026-11-06 22:34) | AL produced two `appimagekit_*` entries for the same 0.87.0 AppImage | guard kept one visible and hid the duplicate; both icons resolve; probe exit 0 |
+| **hidden AL entry's `StartupWMClass`** (follow-up) | same as the visible entry; `rule 2` matched two entries | removed; `rule 2` matches only `eyeshell.desktop` |
+| **menu click after the 0.1.9 update** | ran the cached 0.1.8 path (`No such file`) | after reboot, launches 0.1.9 |
+| **dock after reboot** | gear / launcher icon | eyeShell icon (user-confirmed) |
 
 ## Transferable lessons
 
@@ -124,8 +148,10 @@ A systemd user path unit watches `~/.local/share/applications` and
 |---|---|
 | **Identity is necessary, not sufficient** | after the two rules match, the winning entry's `Icon=` must resolve; check every match, not just the visible one |
 | **A desktop entry can be structurally invalid and invisible to both rules** | `Gio` returns null; `desktop-file-validate` names the missing key; a probe that only uses `Gio.AppInfo.get_all()` never sees it |
-| **`NoDisplay=true` does not by itself stop window matching** | an existing binding is not cleared by hiding the entry; repair the hidden duplicate's icon too, or the shell can still show a gear |
+| **`NoDisplay=true` alone does not stop window matching** | remove `StartupWMClass` from the hidden duplicate so only the visible entry matches; patching its icon is only a fallback |
 | **Multiple entries can match the same app_id** | fix all of them; hiding is for the menu, not for identity |
+| **A file edit is not a session refresh** | GNOME Shell caches `ShellApp` command lines; after `Exec=` changes the menu can keep running the old path while `Gio` reads the new one. Log out/in or reboot (or use a new desktop ID) |
+| **Double-click and app-menu click are different paths** | double-click executes the file (or the AppImageLauncher GUI); the menu uses the cached desktop entry. Passing one does not prove the other |
 | **Distinguish generator behaviour from corruption** | reproduce the generator in an isolated `HOME` (`ail-cli integrate`); AL appends ` (1)`, it does not drop keys |
 | **A guard must repair structure** | a two-key patch can report success while the entry is unloadable |
 | **Alias icons are cheap insurance** | generating the generator's own icon name (`appimagekit_<id>_<icon>`) rescues cached GIcon strings and races |
@@ -141,8 +167,10 @@ A systemd user path unit watches `~/.local/share/applications` and
   (verified with `ail-cli` in an isolated `HOME`), but the AppImage in use was not rebuilt.
 - AL copies `StartupWMClass` from the bundle; Token Monitor's bundle still says `Token Monitor`
   while its app_id is `token-monitor`.
-- GNOME may keep the old icon in the running window's app object; restart the app (or re-login)
-  after changing the entry.
+- GNOME caches the `ShellApp` command line and icon for the session. Editing `Exec=`/`Icon=` on
+  disk is not enough; log out/in (or reboot). A new desktop ID is the non-logout workaround.
+- The eyeShell installer now drops `StartupWMClass` from the hidden AppImageLauncher entry; if it
+  is re-run, it must not put that key back.
 - The first Linux case documents Gear Lever 4.6.2; the entry shapes differ
   (`token_monitor.desktop` vs `appimagekit_<id>-Token_Monitor.desktop`). The two-rule model is
   shared; the repair mechanics are not.

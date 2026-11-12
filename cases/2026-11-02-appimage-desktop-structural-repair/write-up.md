@@ -1,9 +1,10 @@
 # AppImage 桌面捷徑：entry 結構壞掉、兩個 entry、抽不到的圖示（GNOME 50 / Wayland）
 
 > 環境：Ubuntu 26.04.1 LTS、GNOME Shell 50.1、Wayland、**AppImageLauncher 3.0.0-beta-2**
-> （git commit `96cb937`）。Token Monitor **0.84.0 → 0.84.1 → 0.87.0**、eyeShell **0.1.5**
-> （jpackage／Compose Desktop AppImage）。2026-11-01 修正，2026-11-02 補測與整理；0.84.1 真實更新
-> 已於 2026-11-02 21:47 驗證（§6.4），0.87.0 於 2026-11-06 驗證（§6.5）。
+> （git commit `96cb937`）。Token Monitor **0.84.0 → 0.84.1 → 0.87.0 → 0.91.0**、eyeShell
+> **0.1.5 → 0.1.9**（jpackage／Compose Desktop AppImage）。2026-11-01 修正，2026-11-02 補測與
+> 整理；0.84.1 真實更新已於 2026-11-02 21:47 驗證（§6.4），0.87.0 於 2026-11-06 驗證（§6.5），
+> eyeShell 0.1.9 的選單／Dock 問題於 2026-11-12 驗證（§6.6）。
 >
 > 這是本 repo 的第二個 Linux case。第一個
 > [`2026-11-02-appimage-dock-gear-linux`](../2026-11-02-appimage-dock-gear-linux/) 記錄的是
@@ -323,18 +324,67 @@ AppImageLauncher 這次產生了兩個同指 0.87.0 的 `appimagekit_*` entry（
 16–512 都查得到，probe 回 `RESOLVED (identity + icon asset)` / exit 0。舊 0.84.1 entry 已被 AL
 移除，`~/Applications` 只剩 0.87.0 的 AppImage。
 
+### 6.6 2026-11-12：eyeShell 0.1.9 的「選單點了沒反應」與 ShellApp 快取
+
+症狀：從應用程式選單點 eyeShell **沒反應**；雙擊 `~/Applications/eyeShell-0.1.9-x86_64.AppImage`
+則正常開啟。這是兩個獨立的問題疊在一起。
+
+**6.6.1 hidden AL entry 仍和可見 entry 搶同一個 `WMClass`**
+
+`appimagekit_<id>-eyeShell.desktop` 雖然 `NoDisplay=true`，仍保留
+`StartupWMClass=io-github-sawaichi9527-eyeshell-MainKt`，所以 rule 2 同時命中隱藏與可見的
+entry。GNOME 可能把視窗綁到 hidden entry。
+
+修法：**把 hidden AL entry 的 `StartupWMClass` 移除**，只讓可見的 `eyeshell.desktop` 參與
+window matching。同步更新：
+
+- `appimage-desktop-fix.py`：eyeShell 的 AL entry 不再寫 `StartupWMClass`。
+- eyeShell 的 `scripts/install-linux-shortcut.sh`：同樣移除，避免重跑腳本又把 key 寫回。
+
+驗證：
+
+```console
+$ probe-desktop-match.sh io-github-sawaichi9527-eyeshell-MainKt ~/Applications/eyeShell-*.AppImage
+rule 2 (StartupWMClass == '…'): eyeshell.desktop        # 只剩一個 match
+verdict: RESOLVED (identity + icon asset)
+```
+
+**6.6.2 GNOME Shell 快取舊的 `ShellApp` command line**
+
+entry 檔已經指向 0.1.9：
+
+```console
+$ gjs -c 'const {GioUnix}=imports.gi; const a=GioUnix.DesktopAppInfo.new("eyeshell.desktop"); print(a.get_filename()); print(a.get_commandline());'
+~/.local/share/applications/eyeshell.desktop
+env APPIMAGELAUNCHER_DISABLE=1 "/home/<you>/Applications/eyeShell-0.1.9-x86_64.AppImage"
+```
+
+但點選時 journal 出現的是舊路徑：
+
+```text
+22:23:01 eyeshell.desktop[54061]: env: '/home/…/eyeShell-0.1.8-x86_64_<old-hash>.AppImage': No such file or directory
+22:23:35 eyeshell.desktop[54346]: env: '/home/…/eyeShell-0.1.8-x86_64_<old-hash>.AppImage': No such file or directory
+```
+
+這是 running GNOME Shell 從 19:06 session 開始快取的 **0.1.8 `ShellApp` command line**，不是磁碟
+上的 entry 內容。雙擊正常，因為它直接執行檔案，不走 desktop entry 快取。Wayland 不能只重啟
+GNOME Shell，**重開機或登出再登入** 後才會重新讀取 entry；之後選單可啟動 0.1.9，Dock 也顯示
+eyeShell 圖示（使用者已確認）。
+
+替代方案（不想登出時）：改用新的 desktop ID（例如 `eyeShell.desktop`）強迫 Shell 建立新的
+app 物件；但登出一次是最乾淨的。
+
 ---
 
 ## 7. 沒有驗證到的事
 
-- **Dock 截圖**：沒有做。驗證到「Gio identity + GtkIconTheme 每個尺寸都查得到」，
-  這是 shell 決定圖示的同一組查表；但沒有實際看畫面。
+- **Dock 截圖**：沒有做；使用者在重開機後確認選單與 Dock 正常（§6.6），這是視覺面的間接確認。
 - **Wayland 原生 app_id**：eyeShell 是 XWayland（`WM_CLASS` 可讀）；Token Monitor 走原生
   Wayland 時沒有直接讀 app_id。兩者的 `StartupWMClass` 都是既有實測值，修法只依賴字串。
-- **GNOME 對已存在視窗的圖示快取**：修 entry 後，執行中的視窗不一定立刻換圖示；重啟 app
-  或重新登入是最後一步。
-- **0.84.1 / 0.87.0 真實更新**：0.84.1 於 2026-11-02 21:47、0.87.0 於 2026-11-06 22:34 發生並
-  驗證（見 §6.4、§6.5）；沒有再手動改任何 entry。
+- **GNOME 對已存在視窗的圖示／指令快取**：修 entry 後，running shell 可能仍用舊的
+  `ShellApp` 圖示或 command line；2026-11-12 的 eyeShell 0.1.9 就是點選時仍執行 0.1.8。
+  重開機／登出再登入後使用者確認正常（§6.6）。
+- **0.84.1 / 0.87.0 / 0.91.0 真實更新**：0.84.1、0.87.0 已驗證；0.91.0 也由守衛正常處理。
 
 ---
 
@@ -347,9 +397,12 @@ AppImageLauncher 這次產生了兩個同指 0.87.0 的 `appimagekit_*` entry（
    但這次沒有重建正在使用的 AppImage。
 2. **Token Monitor bundle 的 `StartupWMClass=Token Monitor`**：app_id 是 `token-monitor`，
    上游應改掉或移除；AL 會原樣複製。
-3. **不要用 `NoDisplay` 當「讓 entry 不再 match」的手段**：它只影響選單，不保證解除既有的
-   window binding。重複 entry 要修好圖示，或真的移除（但 AL 會重建，所以還是要守衛）。
-4. **本 repo 第一個 Linux case 是 Gear Lever**：若要在本機重現，請先確認 integrator；
+3. **不要用 `NoDisplay` 當「讓 entry 不再 match」的手段**：它只影響選單，hidden entry 仍可能
+   搶 window matching。把 hidden duplicate 的 `StartupWMClass` 移除，只留給可見 entry。
+4. **GNOME Shell 快取 `ShellApp` command line**：改 `Exec=` 後，running session 可能繼續執行
+   舊路徑；`journalctl` 會看到舊 AppImage 路徑，`Gio` 新 process 卻是新路徑。登出／重開機，
+   或改用新的 desktop ID。
+5. **本 repo 第一個 Linux case 是 Gear Lever**：若要在本機重現，請先確認 integrator；
    `token_monitor.desktop` 與 `appimagekit_<id>-Token_Monitor.desktop` 是不同工具的形狀。
 
 ---
@@ -376,6 +429,10 @@ journalctl --user --since "today" --no-pager | grep -i -E "appimagelauncher|No i
 
 # GNOME 記得的 app id（唯讀）
 strings ~/.local/share/gnome-shell/application_state | grep -i -E "eyeshell|token"
+
+# entry 檔案內容 vs running shell 快取的 command line
+gjs -c 'const {GioUnix}=imports.gi; const a=GioUnix.DesktopAppInfo.new("eyeshell.desktop"); print(a.get_filename()); print(a.get_commandline());'
+journalctl --user --since "today" --no-pager | grep -E "eyeshell.desktop.*No such file"
 
 # 重建修正前的 probe 狀態（隔離 XDG）
 T=$(mktemp -d); mkdir -p "$T/.local/share/applications" "$T/.local/share/icons/hicolor/48x48/apps"

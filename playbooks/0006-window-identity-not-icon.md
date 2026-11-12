@@ -42,9 +42,9 @@ A match is not the end of the lookup. Two more things can produce a gear with a 
    entries.
 
 Also: **several entries can match**. `NoDisplay=true` removes an entry from menus; it does not
-necessarily remove it from window matching, and it does not clear an existing binding. If two
-entries share `StartupWMClass`, the shell may bind the window to either one; repair
-`Icon`/`StartupWMClass` on all of them, then hide the duplicate.
+remove it from window matching. If a duplicate must stay on disk (a generator owns it), **remove
+`StartupWMClass` from the hidden copy** and keep it only on the visible entry; otherwise the shell
+can bind the window to the hidden entry. Patching the hidden copy's icon is a fallback, not the fix.
 
 ## Measure the window identity first
 
@@ -79,6 +79,22 @@ on every install and every update. Consequences:
 
 So: fix identity, and if a generator owns the file, guard it.
 
+## The shell caches the command line
+
+Changing `Exec=` in a `.desktop` file does **not** update a running GNOME Shell's `ShellApp`
+command line. A menu click can keep launching the old path while a fresh `Gio` process reads the
+new one — and double-clicking the AppImage still works because it bypasses the cached entry.
+
+```console
+$ gjs -c 'const {GioUnix}=imports.gi; const a=GioUnix.DesktopAppInfo.new("eyeshell.desktop"); print(a.get_commandline())'
+env APPIMAGELAUNCHER_DISABLE=1 "…/eyeShell-0.1.9-x86_64.AppImage"
+$ journalctl --user --since today | grep 'No such file'
+… eyeshell.desktop[…]: env: '…/eyeShell-0.1.8…AppImage': No such file or directory
+```
+
+The entry on disk is right; the session is stale. Log out/in (or reboot) on Wayland — a shell
+restart is not available — or create a new desktop ID to force a fresh app object.
+
 ## Rules
 
 1. **Measure `app_id` before touching the icon.** The asset is rarely the bug — but check it after
@@ -92,10 +108,12 @@ So: fix identity, and if a generator owns the file, guard it.
 5. **Prove the guard by faking the regression.** Write the broken file back, wait one cycle, assert
    it is corrected — otherwise a silently-broken guard looks exactly like the original bug.
 6. **Dedupe, but do not rely on hiding.** Two entries with the same `StartupWMClass` can both match
-   the window; `NoDisplay=true` only removes one from the menu. Repair the icon/WMClass on both and
-   hide the duplicate for the menu.
+   the window; `NoDisplay=true` only removes one from the menu. Remove `StartupWMClass` from the
+   hidden duplicate so only the visible entry matches.
 7. **Check the pre-fix state.** A probe that returns 0 on the broken state is not a check.
    Reconstruct the old entry in an isolated `XDG_DATA_HOME` and assert the probe fails on it.
+8. **A file edit is not a session refresh.** After changing `Exec=`/`Icon=`, log out/in or reboot
+   (or use a new desktop ID); otherwise the menu can keep running the old command line.
 
 ## Worked examples
 
@@ -104,5 +122,6 @@ So: fix identity, and if a generator owns the file, guard it.
   guard that normalises the entry in under 5 s after a simulated rewrite.
 - [cases/2026-11-02-appimage-desktop-structural-repair](../cases/2026-11-02-appimage-desktop-structural-repair/) —
   AppImageLauncher 3.0.0-beta-2, two apps: a structurally invalid entry that both rules skip, and a
-  second entry matching the same `app_id` whose `Icon=` was never extracted. This is the case that
-  forced the "identity is not sufficient" check.
+  second entry matching the same `app_id` whose `Icon=` was never extracted. The follow-up (eyeShell
+  0.1.9) added the hidden-duplicate `StartupWMClass` rule and the stale `ShellApp` command-cache
+  trap; a reboot confirmed the menu and dock afterwards.
