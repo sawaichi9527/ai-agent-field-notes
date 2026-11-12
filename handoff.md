@@ -3,7 +3,7 @@
 State transfer document. `README.md` says what this repo is; **this file says where things stand**
 and what the next person (usually future me) has to do.
 
-Last updated: 2026-11-09 (Asia/Taipei)
+Last updated: 2026-11-12 (Asia/Taipei)
 
 ## Baseline environment
 
@@ -157,6 +157,32 @@ non-zero, which *looks* like "no backup"). Write the archive to a path the opera
 version is wanted; (2) verify no external webhook relies on the deprecated Action-run events, and that
 no document is deep-linked via an absolute repo-root path (both 17.0 breaking changes).
 
+## DSH plugin lifecycle (added 2026-11-12)
+
+**Settled — "remove failed" was package state, not a permission or a broken plugin.** On an Ubuntu
+24.04.5 workstation (dsh **0.2.2-rc.1**, pnpm **12.4.2**), removing `dsh-multi-lang-ui@0.1.1` failed
+with nothing but `Command failed with exit code 1`. The plugin manager's per-operation log held the
+command line and **not** pnpm's stderr; re-running the same command on a copy of the profile showed
+`ERR_PNPM_UNUSED_PATCH` — the plugin had been fixed for DSH 0.2.0-rc.2 months earlier with pnpm's
+native patch mechanism, and pnpm refuses to remove the last dependent of a declared patch.
+
+The failure also left the profile **half-removed**: `removeBundle` writes the bundle deselection
+(and the `disabled: true` overlay row) *before* it calls `pnpm remove`, so the plugin was no longer
+loaded, still installed, and impossible to remove by retrying. Fixed by withdrawing the
+`patchedDependencies` declaration first, re-running removal (exit 0 in 3 s), then deleting the
+orphan overlay row (until then `--dump-config` warned `patch: entry "multi-lang-ui" not found`) and
+the orphan patch file. Final state: `--dump-config` 202 rows, stderr empty; 6 dependencies; 0
+lockfile references; the live server still answering (401 without a token is its normal auth).
+Details: [`cases/2026-11-12-dsh-plugin-remove-unused-patch/`](cases/2026-11-12-dsh-plugin-remove-unused-patch/)
+and [playbook 0009](playbooks/0009-uninstall-failure-is-package-state.md).
+
+**Open:** (1) `@deepseek-ai/dsh-plugin-manager` 0.2.2-rc.1 `removeBundle` still (a) does not clean the
+profile's own `patchedDependencies` for the package being removed, (b) commits the deselection
+before pnpm runs, and (c) reports only an exit code — the upstream fix is to withdraw the patch
+declaration first, roll back the deselection on failure, and surface pnpm's stderr. (2) Any
+compatibility patch applied by hand to a profile must be recorded next to the reinstall/removal
+step, or it gates the uninstall later.
+
 ## Traps that already cost time here
 
 Keep these in mind before starting a new investigation.
@@ -207,6 +233,13 @@ Keep these in mind before starting a new investigation.
     0.7.39 → 0.7.41 and the symptom returned unchanged. Write the re-apply step down at the same time
     as the patch (here: `reapply-windowsHide-patch.ps1`), or the second occurrence costs the whole
     investigation again.
+13. **A failed removal leaves "not loaded but still installed".** Wrappers that stage a remove across
+    selection list → package files → overlay rows can stop halfway and still report failure, so the
+    plugin disappears from the UI while `package.json`, `node_modules` and the lockfile keep it. Do
+    not trust the list state: check dependency declaration, lockfile, installed tree, selection list
+    and overlay rows, then `--dump-config`. A declared patch outliving its package
+    (`ERR_PNPM_UNUSED_PATCH`) is the usual blocker — withdraw the declaration before removing
+    ([playbook 0009](playbooks/0009-uninstall-failure-is-package-state.md)).
 
 ## Handing this over
 
