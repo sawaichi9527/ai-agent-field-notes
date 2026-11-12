@@ -90,10 +90,10 @@ find -L <user-A> -name HEAD | wc -l      # 每個用戶下實際的 .git 數量
 ```bash
 # 1. 改 compose 的 image tag（16.0.4 → 17.0，自動跟 17.0.Y patch；要釘死就寫 17.0.1）
 sed -i 's|codeberg.org/forgejo/forgejo:16.0.4|codeberg.org/forgejo/forgejo:17.0|' \
-     /home/sqa/docker-stack/forgejo/docker-compose.yml
+     ~/docker-stack/forgejo/docker-compose.yml
 
 # 2. 先 pull（不停機；舊容器還在時就拉好）
-cd /home/sqa/docker-stack/forgejo && docker compose pull forgejo
+cd ~/docker-stack/forgejo && docker compose pull forgejo
 
 # 3. 重建（bind-mount 資料保留；容器重啟 → 短停頓）。首次啟動會自動跑 DB schema 遷移
 docker compose up -d forgejo
