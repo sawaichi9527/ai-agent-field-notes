@@ -29,6 +29,7 @@ evidence that you can tell a real root cause from a coincidence.
 | A plugin is installed but never shows up in the marketplace's "installed" list | DSH + `@maxhsu/dsh-forge` | Windows | host-only plugin has no UI panel; the panel also labels it by entry id, not package name | [case](cases/2026-09-18-dsh-plugin-not-showing/) |
 | Removing a plugin fails with "exit code 1", and it stays half-removed — gone from the list, still installed, retries keep failing | DSH + `dsh-multi-lang-ui` | Ubuntu 24.04.5 | a stale pnpm `patchedDependencies` entry lost its only dependent (`ERR_PNPM_UNUSED_PATCH`); the manager commits the bundle deselection **before** pnpm runs, so the failure leaves a half-applied removal | [case](cases/2026-11-12-dsh-plugin-remove-unused-patch/) · [playbook](playbooks/0009-uninstall-failure-is-package-state.md) |
 | After installing `@goodandready/dsh-gitea`, every `gitea_*` tool says "Configure the Gitea instance URL in Settings"; a config edit then made the tools disappear | DSH + `@goodandready/dsh-gitea` 0.7.44 | Windows | bundle installs the entry with an empty `config: {}`; the working config (baseUrl / tokenEnv / defaultOwner / defaultRepo) must be supplied as a profile overlay, `defaultOwner` must be a **quoted string**, and a config that failed validation needs a full restart to load | [case](cases/2026-11-13-dsh-gitea-config-file-windows/) · [playbook](playbooks/0010-verify-a-plugin-we-can-call-its-tool.md) |
+| `apt update` ends with three `Notice:` lines every run: two `doesn't support architecture 'i386'`, one `Missing Signed-By` | apt 3.2.1 | Ubuntu 26.04.1 LTS | `i386` is a foreign architecture (kept for Steam/Wine) but those two third-party repos index **amd64 only**; and `apt modernize-sources` rewrote the NVIDIA entry with an **empty** `Signed-By` while its key stayed in `trusted.gpg.d` | [case](cases/2026-11-13-apt-update-three-notices/) · [playbook](playbooks/0011-terminal-only-output-is-not-the-output.md) |
 
 ## Playbooks (the reusable part)
 
@@ -43,6 +44,7 @@ These are tool-agnostic. Unless an entry says otherwise, they apply to any agent
 7. [A regression after an upgrade is a different artifact, not a worse version](playbooks/0007-same-version-different-artifact.md) — check the package state and the file that carries the capability, not the version string
 8. [An uninstall that refuses is package state, and the wrapper hides why](playbooks/0009-uninstall-failure-is-package-state.md) — read the manager's operation log, reproduce on a copy, withdraw patch declarations before the package
 9. [A plugin is "installed"; whether it is usable is a separate load + config + restart chain](playbooks/0010-verify-a-plugin-we-can-call-its-tool.md) — install gives an empty config; supply a typed overlay, restart, and verify by calling a registered tool
+10. [Terminal-only output is not the output](playbooks/0011-terminal-only-output-is-not-the-output.md) — `Notice:`/progress lines exist only on a tty; a pipe silently drops them, so a captured run that looks clean may be blind
 
 ## Docs (product-specific reference)
 
