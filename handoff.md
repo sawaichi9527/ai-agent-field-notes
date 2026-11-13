@@ -3,7 +3,7 @@
 State transfer document. `README.md` says what this repo is; **this file says where things stand**
 and what the next person (usually future me) has to do.
 
-Last updated: 2026-11-12 (Asia/Taipei)
+Last updated: 2026-11-13 (Asia/Taipei)
 
 ## Baseline environment
 
@@ -62,6 +62,28 @@ tool plugin with no client panel, and because the panel labels it by its entry i
 instead of its package name. The only reliable test is to **call a tool it registers**.
 
 Details: [`cases/2026-09-18-dsh-plugin-not-showing/`](cases/2026-09-18-dsh-plugin-not-showing/)
+
+### 4. `dsh-gitea` installed ≠ connected: install leaves `config: {}`; config must be supplied, typed, and reloaded (2026-11-13)
+
+Installing `@goodandready/dsh-gitea` registers the entry with an **empty config**, so every
+`gitea_*` call returns "Configure the Gitea instance URL in Settings." until a profile overlay
+supplies `baseUrl` / `tokenEnv` / `defaultOwner` / `defaultRepo`. Traps on the way:
+
+- **Type-strict validation.** `defaultOwner: 829522` (unquoted YAML number) fails
+  `expected string but got 829522` and the plugin is **not loaded at all** — the tools disappear
+  (`unknown tool`) instead of erroring. Quote it: `"829522"`.
+- **Restart is the load.** The overlay's live patch reload does not re-arm a plugin whose config
+  failed validation at load; a full harness restart is required, then verify by calling
+  `gitea_whoami` (never by panels/lists).
+- **Credential stays separate.** The token lives in DSH Credentials and is referenced by
+  `tokenEnv`; the overlay never contains the value.
+
+Result: connected to the LAN Forgejo host; `gitea_whoami` → 829522 (admin), `gitea_flavor` →
+Forgejo 17.0.1 OK, the empty `829522/comfyui-gfx1151-rocm` repo confirmed reachable (clone/recipe
+work pending explicit ask).
+
+Details: [`cases/2026-11-13-dsh-gitea-config-file-windows/`](cases/2026-11-13-dsh-gitea-config-file-windows/) ·
+method: [playbook 0010](playbooks/0010-verify-a-plugin-we-can-call-its-tool.md)
 
 ## Open
 

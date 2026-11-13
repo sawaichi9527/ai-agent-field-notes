@@ -28,6 +28,7 @@ evidence that you can tell a real root cause from a coincidence.
 | A console window flashes every ~4 s and typing in the browser loses characters | DSH + `@goodandready/dsh-gitea` | Windows 10 | `git rev-parse` spawned from a 4 s status poll without `windowsHide`; **returns after every plugin update** (re-confirmed on 0.7.41) | [case](cases/2026-10-30-dsh-console-flash-win/) · [playbook](playbooks/0003-catch-short-lived-windows.md) |
 | A plugin is installed but never shows up in the marketplace's "installed" list | DSH + `@maxhsu/dsh-forge` | Windows | host-only plugin has no UI panel; the panel also labels it by entry id, not package name | [case](cases/2026-09-18-dsh-plugin-not-showing/) |
 | Removing a plugin fails with "exit code 1", and it stays half-removed — gone from the list, still installed, retries keep failing | DSH + `dsh-multi-lang-ui` | Ubuntu 24.04.5 | a stale pnpm `patchedDependencies` entry lost its only dependent (`ERR_PNPM_UNUSED_PATCH`); the manager commits the bundle deselection **before** pnpm runs, so the failure leaves a half-applied removal | [case](cases/2026-11-12-dsh-plugin-remove-unused-patch/) · [playbook](playbooks/0009-uninstall-failure-is-package-state.md) |
+| After installing `@goodandready/dsh-gitea`, every `gitea_*` tool says "Configure the Gitea instance URL in Settings"; a config edit then made the tools disappear | DSH + `@goodandready/dsh-gitea` 0.7.44 | Windows | bundle installs the entry with an empty `config: {}`; the working config (baseUrl / tokenEnv / defaultOwner / defaultRepo) must be supplied as a profile overlay, `defaultOwner` must be a **quoted string**, and a config that failed validation needs a full restart to load | [case](cases/2026-11-13-dsh-gitea-config-file-windows/) · [playbook](playbooks/0010-verify-a-plugin-we-can-call-its-tool.md) |
 
 ## Playbooks (the reusable part)
 
@@ -41,6 +42,7 @@ These are tool-agnostic. Unless an entry says otherwise, they apply to any agent
 6. [A wrong window icon is usually identity — but verify the asset too](playbooks/0006-window-identity-not-icon.md) — match by id/`StartupWMClass`, then check the entry is loadable and every matched entry's `Icon` resolves
 7. [A regression after an upgrade is a different artifact, not a worse version](playbooks/0007-same-version-different-artifact.md) — check the package state and the file that carries the capability, not the version string
 8. [An uninstall that refuses is package state, and the wrapper hides why](playbooks/0009-uninstall-failure-is-package-state.md) — read the manager's operation log, reproduce on a copy, withdraw patch declarations before the package
+9. [A plugin is "installed"; whether it is usable is a separate load + config + restart chain](playbooks/0010-verify-a-plugin-we-can-call-its-tool.md) — install gives an empty config; supply a typed overlay, restart, and verify by calling a registered tool
 
 ## Docs (product-specific reference)
 
