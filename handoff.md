@@ -166,6 +166,20 @@ user confirmed the menu click works. Probe:
 [`cases/2026-11-13-appimage-menu-click-launch-chain/`](cases/2026-11-13-appimage-menu-click-launch-chain/),
 [playbook 0012](playbooks/0012-bisect-the-launch-chain.md).
 
+**Verified — Token Monitor 0.91.0 menu click (2026-11-13):** a separate shape of "the click does
+nothing". The entry was valid and pointed at the installed AppImage, but each click started a
+process that exited in ~2.2 s with **no app log at all**. 0.91.0's `launch.js` calls
+`linuxDisplayServer.startWithXWayland()`, which re-execs the AppImage with `--ozone-platform=x11`,
+detached and with `stdio: 'ignore'`, then calls `app.exit(0)`. GNOME runs menu launches in a
+transient `app-gnome-*.scope` whose default `KillMode=control-group` kills the rest of the cgroup
+when the main process exits, so the relaunched child died before it could mount the AppImage. Fix:
+put `--ozone-platform=x11` on the entry's `Exec=` (and in the guard's `exec_suffix`), so the
+wrapper takes its "already selected" branch and never forks. User-confirmed after a reboot. The
+first post-fix test was a **false negative**: the running Shell still had the old `ShellApp`
+command, so the journal looked identical before and after the edit. Details:
+[`cases/2026-11-13-token-monitor-menu-click-noop/`](cases/2026-11-13-token-monitor-menu-click-noop/)
+and [playbook 0013](playbooks/0013-menu-click-noop-is-a-lifetime-question.md).
+
 **Open:** (1) AppImageLauncher 3.0.0-beta-2 fails to extract the eyeShell icon from a jpackage AppDir
 that only has root `eyeshell.png` + `.DirIcon`; packaging the seven sizes under
 `usr/share/icons/hicolor/<size>/apps/eyeshell.png` fixes extraction (verified with `ail-cli`), but
@@ -173,7 +187,9 @@ the AppImage in use was not rebuilt. (2) Token Monitor's bundle still ships
 `StartupWMClass=Token Monitor` while its app_id is `token-monitor`. (3) GNOME caches the `ShellApp`
 command line/icon for the session; after `Exec=`/`Icon=` changes the menu can keep running the old
 path while a fresh `Gio` reads the new one. Log out/in or reboot (or use a new desktop ID). (4) A
-silently broken guard looks exactly like the original bug — re-verify after updates.
+silently broken guard looks exactly like the original bug — re-verify after updates. (5) Token
+Monitor's upstream `startWithXWayland` discards the child's stdio and exits the parent before the
+child is ready; the `Exec` flag is a workaround, not a fix at the source.
 
 **Settled — RustDesk (2026-11-04):** "RustDesk asks for screen-capture consent again after
 updating to 1.5.1" is not a regression. The unattended capability ships in a **separate package**
@@ -303,8 +319,9 @@ Keep these in mind before starting a new investigation.
     `.desktop` file may correctly point at 0.1.9 while a menu click still executes 0.1.8 and fails
     (`env: … No such file or directory`); double-clicking the AppImage works because it bypasses the
     cached entry. A fresh `Gio` process reads the new command. Log out/in or reboot (Wayland has no
-    shell-only restart), or use a new desktop ID to force a fresh app object.
-
+    shell-only restart), or use a new desktop ID to force a fresh app object. **The same cache also
+    makes a correct fix look broken:** after editing `Exec=`, a click in the same session runs the
+    old command and reproduces the identical failure signature — reboot before judging the fix.
 15. **An instance the agent started contaminates every later click.** A test launch holds the
     Chromium singleton lock, so the user's next menu click is a *second instance*: it exits 0 in
     ~1.3 s and looks exactly like the bug you were asked to fix. Three "still broken" reports here were
@@ -315,6 +332,13 @@ Keep these in mind before starting a new investigation.
     Check `~/.config/<Product>/SingletonLock` (holder alive?) and `SingletonSocket` (target exists?)
     before touching the launcher, the AppImage or the icon. Plant a stale lock to prove a fix; a repair
     that never saw a failing input proves nothing.
+
+17. **A valid desktop entry can still "do nothing" because the process dies.** GNOME starts
+    menu-launched apps in a transient `app-gnome-*.scope`; when the main process exits, systemd
+    stops the scope and kills the rest of the cgroup. A launcher that forks a helper and exits
+    (Token Monitor 0.91.0's XWayland relaunch) loses the helper, and `stdio: 'ignore'` hides why.
+    Check scope lifetime, `tmp-.mount_*` count and the app's own log lines before touching the
+    entry ([playbook 0013](playbooks/0013-menu-click-noop-is-a-lifetime-question.md)).
 
 ## Handing this over
 

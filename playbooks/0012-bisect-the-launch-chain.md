@@ -113,3 +113,5 @@ a process that then yields to an instance that is not there.
 - Probe: [`tools/linux/probe-appimage-launch-chain.sh`](../tools/linux/probe-appimage-launch-chain.sh)
   — prints all five stages in one pass.
 - Case: [`cases/2026-11-13-appimage-menu-click-launch-chain/`](../cases/2026-11-13-appimage-menu-click-launch-chain/)
+- [Playbook 0013](0013-menu-click-noop-is-a-lifetime-question.md) — the same symptom when the process
+  starts but does not stay (a self-relaunch child killed by GNOME's app scope)
