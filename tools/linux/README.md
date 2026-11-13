@@ -1,4 +1,4 @@
-# tools/linux — status: 2 probes
+# tools/linux — status: 3 probes
 
 The agent-CLI probes below are still unwritten; the two Linux probes that do exist answer
 different questions (desktop entry identity, package variant identity), because those are where
@@ -10,6 +10,7 @@ the Linux cases came from.
 |---|---|---|
 | [`probe-desktop-match.sh`](probe-desktop-match.sh) | does a window's `app_id` resolve to a **usable** `.desktop` entry — by which rule, with every matched entry's `Icon` resolving, and with no invalid entry hiding from GLib? | python3 + PyGObject + Gtk 3 typelib |
 | [`probe-package-variant.sh`](probe-package-variant.sh) | of two conflicting packages, which is installed, and does it own the file that carries the capability? | dpkg (read-only) |
+| [`probe-appimage-launch-chain.sh`](probe-appimage-launch-chain.sh) | when a menu click does nothing: is the entry valid, is an integrator GUI in the path, is the Chromium singleton lock stale, is the window merely hidden? | bash + procps; optional xwininfo, desktop-file-validate |
 
 Exit code is `0` when identity resolves, every matching entry's `Icon` resolves at at least one
 standard size, and no explicit/exec-referencing entry is invalid; `1` when the window would fall back

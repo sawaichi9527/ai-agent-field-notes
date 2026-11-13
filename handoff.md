@@ -136,6 +136,36 @@ shared `StartupWMClass` and (b) the running GNOME Shell had the 0.1.8 `ShellApp`
 (journal showed the old path; a fresh `Gio` read 0.1.9). Dropping `StartupWMClass` from the hidden
 entry and rebooting fixed both; the user confirmed the menu and dock afterwards.
 
+**Settled — a menu click is a five-stage chain, and all three of its silent failures were live at once
+(2026-11-13).** Token Monitor 0.91.0 + AppImageLauncher 3.0.0-beta-2: clicking the app-grid icon did
+nothing while double-clicking the AppImage worked, and closing the window left the app running as a
+background widget. Three independent layers, each able to fail silently:
+
+1. **the integrator's Qt GUI swallows `second-instance`** — AppImageLauncher's binfmt interpreter hands
+   the AppImage to `/usr/bin/AppImageLauncher` unless `APPIMAGELAUNCHER_DISABLE` is set; a launch that
+   way never delivers the app's `second-instance` event, so a click while the app is alive cannot
+   restore its window (direct execution of the app binary maps the hidden window immediately:
+   `IsUnMapped` → `IsViewable`);
+2. **a stale Chromium singleton lock** — after a dirty exit, or a reboot while the app was running
+   (`/tmp` wiped), `SingletonLock` points at a dead pid and `SingletonSocket` at a removed path; the
+   next launch takes the "second instance" path, fails to notify, and exits **0** in ~1.3 s with no
+   window and empty stderr;
+3. **the shell cache** — GNOME Shell kept executing the pre-edit `Exec=` while a fresh
+   `gtk-launch <desktop-id>` ran the new wrapper (playbook 0012, and the same trap as the eyeShell
+   0.1.9 case).
+
+Fix: a wrapper as `Exec=` (`~/.local/bin/token-monitor`) that picks the newest
+`~/Applications/Token-Monitor-*.AppImage`, clears a dead/missing singleton lock, exports
+`APPIMAGELAUNCHER_DISABLE=1`, then execs; plus `enable_daemon = false` and
+`systemctl --user disable --now appimagelauncherd` so the integrator stops rewriting the entry; plus a
+`.path` unit and a login oneshot that re-point `Exec=` and clear locks (verified: a hand-rewritten
+`Exec=` reverted in ≤3 s); plus one session reload for layer 3. After the reboot the journal shows the
+wrapper executed by gnome-shell and `APPIMAGELAUNCHER_DISABLE set, launching AppImage directly`; the
+user confirmed the menu click works. Probe:
+`tools/linux/probe-appimage-launch-chain.sh`. Details:
+[`cases/2026-11-13-appimage-menu-click-launch-chain/`](cases/2026-11-13-appimage-menu-click-launch-chain/),
+[playbook 0012](playbooks/0012-bisect-the-launch-chain.md).
+
 **Open:** (1) AppImageLauncher 3.0.0-beta-2 fails to extract the eyeShell icon from a jpackage AppDir
 that only has root `eyeshell.png` + `.DirIcon`; packaging the seven sizes under
 `usr/share/icons/hicolor/<size>/apps/eyeshell.png` fixes extraction (verified with `ail-cli`), but
@@ -274,6 +304,17 @@ Keep these in mind before starting a new investigation.
     (`env: … No such file or directory`); double-clicking the AppImage works because it bypasses the
     cached entry. A fresh `Gio` process reads the new command. Log out/in or reboot (Wayland has no
     shell-only restart), or use a new desktop ID to force a fresh app object.
+
+15. **An instance the agent started contaminates every later click.** A test launch holds the
+    Chromium singleton lock, so the user's next menu click is a *second instance*: it exits 0 in
+    ~1.3 s and looks exactly like the bug you were asked to fix. Three "still broken" reports here were
+    the agent's own leftover instance. Check `ps` from **outside** the sandbox before judging any click,
+    and test the "already running → window hidden" contract separately from the cold start.
+
+16. **"Exit 0 + ~1.3 s CPU + no window + empty stderr" is the single-instance path, not a crash.**
+    Check `~/.config/<Product>/SingletonLock` (holder alive?) and `SingletonSocket` (target exists?)
+    before touching the launcher, the AppImage or the icon. Plant a stale lock to prove a fix; a repair
+    that never saw a failing input proves nothing.
 
 ## Handing this over
 
