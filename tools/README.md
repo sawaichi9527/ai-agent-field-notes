@@ -16,6 +16,7 @@ Read [`win/README.md`](win/README.md) for per-script status and limits before ru
 | Does a window's `app_id` resolve to a **usable** `.desktop` entry (right icon, no duplicate, valid file)? | [`linux/probe-desktop-match.sh`](linux/probe-desktop-match.sh) | python3 + PyGObject + Gtk 3 typelib | Linux |
 | A fix stopped working after an "update" — is the variant package that carries it still installed? | [`linux/probe-package-variant.sh`](linux/probe-package-variant.sh) | dpkg (read-only) | Linux |
 | A menu click "does nothing" — which stage of the launch chain is dead (entry, integrator, stale singleton lock, hidden window)? | [`linux/probe-appimage-launch-chain.sh`](linux/probe-appimage-launch-chain.sh) | bash + procps; optional xwininfo | Linux |
+| A counter says "N tokens" and stops — what did the engine actually stream, and which part was the counter not counting? | [`linux/probe-sse-delta-mix.py`](linux/probe-sse-delta-mix.py) | python3 + a server log that records SSE packets verbatim | Linux |
 | — | [`linux/README.md`](linux/README.md) — the agent-CLI probes are still unwritten, and why | — | Linux |
 
 ## Conventions

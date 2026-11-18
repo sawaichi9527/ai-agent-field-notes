@@ -3,7 +3,7 @@
 State transfer document. `README.md` says what this repo is; **this file says where things stand**
 and what the next person (usually future me) has to do.
 
-Last updated: 2026-11-13 (Asia/Taipei)
+Last updated: 2026-11-18 (Asia/Taipei)
 
 ## Baseline environment
 
@@ -84,6 +84,26 @@ work pending explicit ask).
 
 Details: [`cases/2026-11-13-dsh-gitea-config-file-windows/`](cases/2026-11-13-dsh-gitea-config-file-windows/) ·
 method: [playbook 0010](playbooks/0010-verify-a-plugin-we-can-call-its-tool.md)
+
+### 5. LM Studio's frozen token counter was a tool-call repetition loop, not a hang (2026-11-18)
+
+- the loaded-model card sat at **`125 tok`** for 62 minutes while the engine's own log went
+  **`n_gen` 0 → 159,261** at 42.7 t/s; the only thing that ended it was
+  `Model unloaded by user or API request`
+- **125 = 110 `reasoning_content` + 15 `content` chunks.** The 23,272 `tool_calls` chunks are not
+  part of that count — the card counts rendered text, not decoded tokens
+- the model looped `,"limit":6` ≈10,500 times inside one `web_search` argument object
+  (`{"query":"","limit":6` …), never emitting `}` and never a `finish_reason`
+- the request carried **no `max_tokens`** and the context was **262144**, i.e. up to ~100 minutes
+  before the loop would end by itself
+- ruled out by measurement: MTP/speculative decoding (0 error lines), swap (0 B of 31 GiB used),
+  server death (HTTP API answered throughout), GPU stall (smooth 60 → 42 t/s)
+- `+2 QUEUED` was the caller retrying every ~15 min **without cancelling** the previous request —
+  queue depth is not backpressure when the head never finishes
+
+Details: [`cases/2026-11-18-lmstudio-token-counter-frozen/`](cases/2026-11-18-lmstudio-token-counter-frozen/) ·
+method: [playbook 0014](playbooks/0014-frozen-counter-is-a-claim-about-the-ui.md) ·
+probe: [`tools/linux/probe-sse-delta-mix.py`](tools/linux/probe-sse-delta-mix.py)
 
 ## Open
 
@@ -339,6 +359,13 @@ Keep these in mind before starting a new investigation.
     (Token Monitor 0.91.0's XWayland relaunch) loses the helper, and `stdio: 'ignore'` hides why.
     Check scope lifetime, `tmp-.mount_*` count and the app's own log lines before touching the
     entry ([playbook 0013](playbooks/0013-menu-click-noop-is-a-lifetime-question.md)).
+
+18. **A frozen progress number is a claim about the display's accounting, not the engine's output.**
+    LM Studio's card read `125 tok` for an hour while the engine logged 159k decoded tokens; 125 was
+    exactly `110 reasoning + 15 content` chunks, and the entire hour of `tool_calls` was excluded from
+    the count. Find the engine-side counter (`n_gen`, `tg`, `n_decoded`) before diagnosing a stall —
+    the number on screen may simply not count what you think it counts
+    ([playbook 0014](playbooks/0014-frozen-counter-is-a-claim-about-the-ui.md)).
 
 ## Handing this over
 
