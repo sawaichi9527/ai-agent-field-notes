@@ -319,6 +319,40 @@ declaration first, roll back the deselection on failure, and surface pnpm's stde
 compatibility patch applied by hand to a profile must be recorded next to the reinstall/removal
 step, or it gates the uninstall later.
 
+## Agent-runtime timeouts and breakers (added 2026-11-20)
+
+**Settled — "the agent stopped answering" was a latched circuit breaker, not a dead model.** A
+chat-bound profile answered every message in **0.5 s** with `Provider has been unresponsive … 6
+consecutive stale attempts`, while the same backend served a 16-token completion in 0.29 s. The
+cross-turn breaker (`_consecutive_stale_streams`, give-up threshold `HERMES_STREAM_STALE_GIVEUP` = 5)
+had latched: past the threshold every call raises **before opening a socket**, and the streak resets
+only on a successful call, a model/provider switch, or a process restart — so retrying can never
+recover.
+
+**Settled — the stale timeout times queue position, not model speed.** Measured on the same backend
+with cache-hostile payloads: cold 117 k-token TTFT **195.5 s** (599 tok/s), the same payload again
+**0.25 s** (prompt cache), cold 60 k **69.4 s** (860 tok/s), and — the decisive one — a second
+concurrent request took **400.8 s** ≈ 195 + 195, i.e. the server has exactly **one request slot**.
+The deployed value was 300 s, which is *enough* for a single cold request and *not enough* for one
+queued request; seven profiles pointed at that endpoint, so collisions were routine. 188 of 201 stale
+kills had `chunks=0`, confirming the knob is a TTFT budget (every chunk resets it; output length is
+irrelevant).
+
+**Applied:** `agent.local_stream_stale_timeout` raised 300 → 900 in every profile that streams to the
+local backend (per-profile files only — a named profile does not merge the global config), verified
+through Hermes' own `load_config_readonly()` rather than by grepping the file. 900 covers up to **4**
+concurrent cold 100 k requests by the measured arithmetic.
+
+**Open — this regresses the 2026-11-18 fix, deliberately.** That case lowered 900 → 300 so a
+genuinely wedged backend is reclaimed in ~5 min, because a kanban worker that keeps heartbeating
+while producing nothing escapes the 3600 s stale detector. With 900, a dead backend burns ~45 min per
+API call (900 s × 3 attempts) and ~75 min to latch the breaker. The structural fixes are not timeout
+values: stop sharing one single-slot endpoint across seven agents, shrink the context (98 k → 20–30 k
+turns 195 s into ~25 s), or route chat to a hosted model and keep the local box for batch work.
+Details: [`cases/2026-11-20-hermes-stale-breaker-latched/`](cases/2026-11-20-hermes-stale-breaker-latched/),
+[playbook 0019](playbooks/0019-a-timeout-measures-queue-position.md), probe
+[`tools/linux/probe-ttft-under-contention.py`](tools/linux/probe-ttft-under-contention.py).
+
 ## Traps that already cost time here
 
 Keep these in mind before starting a new investigation.

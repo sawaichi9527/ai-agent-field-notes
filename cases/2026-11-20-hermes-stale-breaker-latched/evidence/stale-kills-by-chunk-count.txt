@@ -1,0 +1,18 @@
+# Distribution of 'chunks received' across every stale-stream kill in the retained logs
+# of this profile (secretary), errors.log + errors.log.1 + agent.log*. Sanitized: no host/IP.
+# Source command: grep -oh 'chunks=[0-9]*' logs | sort | uniq -c | sort -rn
+
+count chunks
+188   0
+2     45
+1     136
+2     283
+1     874
+2     692
+2     798
+1     922
+1     2005
+2     4011
+
+# 188 / 201 = 93.5% produced ZERO chunks before the deadline.
+# A mid-stream drop (chunks>0) is a different failure and only accounts for 13/201.

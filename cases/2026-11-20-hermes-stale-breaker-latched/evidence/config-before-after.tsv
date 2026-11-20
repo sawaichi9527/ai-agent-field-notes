@@ -1,0 +1,10 @@
+profile	backend	before_s	after_s	changed
+secretary	local <LAN-IP>:1234 (ornith)	900	900	(already set by the 2026-11-18 case)
+builder	local <LAN-IP>:1234 (ornith)	300	900	yes
+coordinator	local <LAN-IP>:1234 (ornith)	300	900	yes
+researcher	local <LAN-IP>:1234 (ornith)	300	900	yes
+writer	local <LAN-IP>:1234 (ornith)	300	900	yes
+runes-holder	local <LAN-IP>:1234 (ornith)	300	900	yes
+default	local <LAN-IP>:1234 (ornith)	300	900	yes
+aeon-builder	remote <LAN-IP-2>:1234 (aeon)	(unset -> 900 default)	900	no
+opencode-researcher	cloud (opencode-go)	(unset -> 900 default)	900	no

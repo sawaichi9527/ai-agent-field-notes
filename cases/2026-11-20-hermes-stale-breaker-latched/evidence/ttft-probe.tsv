@@ -1,0 +1,5 @@
+scenario	prompt_tokens	completion_tokens	ttfb_s	first_token_s	total_s	effective_prefill_tok_s	decode_tok_s
+cold_single_117k	117146	16	0.02	195.53	196.06	599.1	30.6
+same_prompt_again_cache_hit	117146	16	0.02	0.25	0.72	(cache)	33.7
+cold_single_60k	59669	16	0.01	69.40	69.84	859.8	36.7
+cold_queued_behind_117k	115651	16	0.02	400.82	401.38	288.5	28.9

@@ -1,8 +1,8 @@
-# tools/linux — status: 4 probes + a ROCm toolkit
+# tools/linux — status: 6 probes + a ROCm toolkit
 
-The agent-CLI probes below are still unwritten; the two Linux probes that do exist answer
-different questions (desktop entry identity, package variant identity), because those are where
-the Linux cases came from.
+The agent-CLI probes answer narrow questions surfaced by the Linux cases: desktop entry identity,
+package variant identity, launch-chain stage, what an engine actually streamed, and — added with the
+2026-11-20 timeout case — time-to-first-token alone versus behind a queue.
 
 ## Written
 
@@ -12,6 +12,7 @@ the Linux cases came from.
 | [`probe-package-variant.sh`](probe-package-variant.sh) | of two conflicting packages, which is installed, and does it own the file that carries the capability? | dpkg (read-only) |
 | [`probe-appimage-launch-chain.sh`](probe-appimage-launch-chain.sh) | when a menu click does nothing: is the entry valid, is an integrator GUI in the path, is the Chromium singleton lock stale, is the window merely hidden? | bash + procps; optional xwininfo, desktop-file-validate |
 | [`probe-sse-delta-mix.py`](probe-sse-delta-mix.py) | when a UI's "N tokens" stops moving: what did the engine actually stream, how much of it was text vs tool-call arguments, and is one argument string repeating? | python3 + a server log with verbatim SSE packets |
+| [`probe-ttft-under-contention.py`](probe-ttft-under-contention.py) | a stalled request produced zero bytes — is the model slow, is the prompt cache cold, or was the request second in line behind a single-slot server? | python3 + an OpenAI-compatible streaming endpoint (bearer token in `TTFT_API_KEY`) |
 | [`grace/kernel-default-status.sh`](grace/kernel-default-status.sh) | which kernel does `GRUB_DEFAULT` point at, which kernel lineages are installed (nvidia-64k vs generic), and is the fallback lineage shielded from `apt autoremove`? | dpkg + apt-mark (read-only) |
 
 Exit code is `0` when identity resolves, every matching entry's `Icon` resolves at at least one
@@ -21,6 +22,13 @@ to the generic icon or could bind to an entry with a missing icon. It also repor
 `Gio.AppInfo.get_all()` silently drops. Used by [playbook 0006](../../playbooks/0006-window-identity-not-icon.md),
 [`cases/2026-11-02-appimage-dock-gear-linux/`](../../cases/2026-11-02-appimage-dock-gear-linux/) and
 [`cases/2026-11-02-appimage-desktop-structural-repair/`](../../cases/2026-11-02-appimage-desktop-structural-repair/).
+
+`probe-ttft-under-contention.py` sends cache-hostile payloads (random salt prefix) and reports
+`ttfb` vs first-token separately, reading `prompt_tokens` back from `usage` instead of estimating from
+characters. Run it three ways — cold alone, the same payload again (`--warm`, expect sub-second if the
+prefix cache is answering), and `--concurrency 2` (second request's TTFT ≈ 2× the first means the
+server has exactly one slot). Used by [playbook 0019](../../playbooks/0019-a-timeout-measures-queue-position.md)
+and [`cases/2026-11-20-hermes-stale-breaker-latched/`](../../cases/2026-11-20-hermes-stale-breaker-latched/).
 
 `probe-package-variant.sh` exits `0` when the variant package is installed **and** owns the
 capability artifact, `1` otherwise — usable as an upgrade guard. Used by

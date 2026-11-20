@@ -1,0 +1,20 @@
+# Pre-flight abort: messages answered in 0.5 s without opening a socket.
+# Sanitized: LAN IP -> <LAN-IP>. User-authored message text omitted.
+
+2026-11-20 19:17:58,055 INFO gateway.run: inbound message: platform=feishu user=h:b921507771 chat=h:cccb6600ab msg_len=2 reply_to_id=None
+2026-11-20 19:17:58,112 WARNING [20261119_215644_881632a3] agent.conversation_loop: API call failed (attempt 1/3, not retryable) error_type=RuntimeError thread=hermes-gateway_634:127613009716928 provider=custom base_url=http://<LAN-IP>:1234/v1 model=ornith-1.5-35b-a3b@q4_k_m summary=Provider has been unresponsive (no response received) for 6 consecutive stale attempts — aborting this call to avoid an indefinite stall. Switch models or start a new session, then retry.
+2026-11-20 19:17:58,485 ERROR [20261119_215644_881632a3] agent.conversation_loop: Non-retryable client error: Provider has been unresponsive (no response received) for 6 consecutive stale attempts — aborting this call to avoid an indefinite stall. Switch models or start a new session, then retry.
+2026-11-20 19:17:58,540 INFO gateway.run: response ready: platform=feishu chat=oc_477b680002fee10f22674dd37da5ebd6 session=agent:secretary:feishu:dm:oc_477b680002fee10f22674dd37da5ebd6 time=0.5s api_calls=1 response=359 chars
+
+# request_dump sidecar written for the 19:17:58 turn:
+#   reason:      non_retryable_client_error
+#   request.url: http://<LAN-IP>:1234/v1/chat/completions   (never reached the socket)
+#   error.type:  RuntimeError
+
+# After the fix (breaker cleared + stale timeout 900), the next turns complete normally:
+2026-11-20 23:02:30,445 INFO [20261119_215644_881632a3] agent.conversation_loop: API call #10: model=ornith-1.5-35b-a3b@q4_k_m provider=custom in=71804 out=825 total=72629 latency=22.9s
+2026-11-20 23:02:46,281 INFO [20261119_215644_881632a3] agent.conversation_loop: API call #11: model=ornith-1.5-35b-a3b@q4_k_m provider=custom in=72815 out=541 total=73356 latency=15.6s
+2026-11-20 23:03:11,844 INFO [20261119_215644_881632a3] agent.conversation_loop: API call #12: model=ornith-1.5-35b-a3b@q4_k_m provider=custom in=73583 out=835 total=74418 latency=25.1s
+2026-11-20 23:03:17,454 INFO [20261119_215644_881632a3] agent.conversation_loop: API call #13: model=ornith-1.5-35b-a3b@q4_k_m provider=custom in=74619 out=125 total=74744 latency=4.1s
+2026-11-20 23:03:27,014 INFO [20261119_215644_881632a3] agent.conversation_loop: API call #14: model=ornith-1.5-35b-a3b@q4_k_m provider=custom in=74968 out=285 total=75253 latency=8.7s
+2026-11-20 23:03:50,352 INFO [20261119_215644_881632a3] agent.conversation_loop: API call #15: model=ornith-1.5-35b-a3b@q4_k_m provider=custom in=75365 out=599 total=75964 latency=20.5s
