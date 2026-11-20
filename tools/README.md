@@ -19,6 +19,7 @@ Read [`win/README.md`](win/README.md) for per-script status and limits before ru
 | A counter says "N tokens" and stops — what did the engine actually stream, and which part was the counter not counting? | [`linux/probe-sse-delta-mix.py`](linux/probe-sse-delta-mix.py) | python3 + a server log that records SSE packets verbatim | Linux |
 | Two ROCm versions on one box: which is current, and would installing another remove anything? | [`linux/rocm/rocm-version-switch.sh`](linux/rocm/rocm-version-switch.sh) `--status` / `--plan` | dpkg + apt (read-only) | Linux |
 | Does ROCm version A differ from version B, once warmup and ordering are controlled? | [`linux/rocm/bench-ab.sh`](linux/rocm/bench-ab.sh) | `/dev/kfd`, sudo (restores at exit) | Linux |
+| What does *this* `gfx1151` machine actually measure, in a form I can paste into an evidence file? | [`linux/rocm/collect-baseline.sh`](linux/rocm/collect-baseline.sh) | dpkg + `/dev/kfd` (read-only) | Linux |
 | Is a pinned PyTorch wheel actually running on the GPU, and does training work? | [`linux/rocm/setup-torch.sh`](linux/rocm/setup-torch.sh), [`smoke-torch.sh`](linux/rocm/smoke-torch.sh) | a venv, `/dev/kfd` | Linux |
 | — | [`linux/README.md`](linux/README.md) — the agent-CLI probes are still unwritten, and why | — | Linux |
 

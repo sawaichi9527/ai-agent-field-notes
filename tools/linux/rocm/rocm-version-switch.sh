@@ -22,6 +22,7 @@
 #   bash rocm-version-switch.sh --verify              # 驗證目前指向的版本能否正常運作
 #   bash rocm-version-switch.sh --bench [N]           # 頻寬 A/B 測試（warmup + N 次取樣，預設 30）
 #   sudo bash rocm-version-switch.sh --restore FILE   # 依 snapshot 還原 alternatives
+#   sudo bash rocm-version-switch.sh --auto           # 把 manual 的 group 交還給 auto 模式
 #   sudo bash rocm-version-switch.sh --remove 10.2    # 移除 10.2（10.1 保持不動）
 #   sudo bash rocm-version-switch.sh --purge 10.1     # 移除 10.1（僅在確定不再需要時）
 #
@@ -67,6 +68,7 @@ while [ $# -gt 0 ]; do
         --purge)         ACTION="purge";   TARGET="${2:-}"; shift ;;
         --restore)       ACTION="restore"; TARGET="${2:-}"; shift ;;
         --snapshot)      ACTION="snapshot" ;;
+        --auto)          ACTION="auto" ;;
         --gfx)           GFX="${2:-}"; shift ;;
         --yes|-y)        ASSUME_YES=1 ;;
         --allow-remove)  ALLOW_REMOVE=1 ;;
@@ -282,6 +284,21 @@ do_use() {
     [ -z "$left" ] || warn "仍有群組指向其他版本：$(printf '%s' "$left" | tr '\n' ' ')"
 
     echo "  提示：若指令仍顯示舊版，開新 shell 或 hash -r 後再測。"
+    echo "  注意：--use 會把這些 group 切成 manual；要恢復自動選擇請跑 --auto。"
+}
+
+# ---------------------------------------------------------------------------
+# 回到 auto 模式（--use 會把 alternatives 切成 manual）
+# ---------------------------------------------------------------------------
+do_auto() {
+    need_root
+    local n=0 g cur
+    while IFS=$'\t' read -r g cur; do
+        [ -n "$g" ] || continue
+        update-alternatives --auto "$g" >/dev/null 2>&1 && n=$((n+1))
+    done < <(update-alternatives --get-selections 2>/dev/null \
+                | awk '$2=="manual" && $3 ~ /^\/opt\/rocm\// {print $1 "\t" $3}')
+    ok "已把 $n 個 group 切回 auto 模式（下一版套件安裝時會依 priority 自動選擇）"
 }
 
 # ---------------------------------------------------------------------------
@@ -596,6 +613,7 @@ case "$ACTION" in
     remove)            do_remove "$TARGET" ;;
     purge)             do_remove "$TARGET" ;;
     restore)           do_restore "$TARGET" ;;
+    auto)              do_auto ;;
     verify)            verify ;;
     bench)             do_bench "$TARGET" ;;
     *)                 die "未知動作：$ACTION" ;;

@@ -24,6 +24,7 @@ facts in [docs/rocm-gfx1151.md](../../../docs/rocm-gfx1151.md), method in
 | Create a pinned PyTorch venv and verify a real GPU matmul | [`setup-torch.sh`](setup-torch.sh) | venv only | python3.14, network |
 | Does training work (eager, fp16 autocast, `torch.compile`) | [`smoke-torch.sh`](smoke-torch.sh) | no | existing venv, `/dev/kfd` |
 | Fresh machine: install ROCm at all | [`install-rocm.sh`](install-rocm.sh) | **yes** | root, network |
+| Emit a fill-in baseline report for another machine | [`collect-baseline.sh`](collect-baseline.sh) | no | `/dev/kfd` for the GPU sections |
 
 ## Safety model
 
@@ -57,6 +58,7 @@ bench-ab.sh              paired A/B across versions, compiles src/bench-vector-a
 setup-torch.sh           pinned torch venv + GPU verification
 smoke-torch.sh           training smoke test (eager / autocast / torch.compile)
 install-rocm.sh          fresh install only
+collect-baseline.sh      read-only: emits a markdown baseline sheet (system/ROCm/verify/bench/torch)
 src/hip-vector-add.cpp   4194304-element vector add (correctness smoke test)
 src/bench-vector-add.cpp 16M-element, warmup + N samples, median/min bandwidth
 ```

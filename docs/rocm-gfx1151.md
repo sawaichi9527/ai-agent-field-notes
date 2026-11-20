@@ -14,7 +14,7 @@ bandwidth as machine-specific and the *procedures* as portable.
 | Package names | `amdrocm-<component><major.minor>[-<gfx>]`; **no** `Conflicts` between minor versions |
 | Variants | `-gfx1151` (this hardware) · no suffix = every GPU (6 GB+, avoid) |
 | "Current version" | `update-alternatives` groups (`core`, `core-10`, `hipcc`, `rocminfo`, `amd-smi`, `rocm-bin`, `rocm-lib`, `amdclang*`, …) |
-| Rollback | point the groups back at the other `core-<version>` tree; no reinstall |
+| Rollback | point the groups back at the other `core-<version>` tree; no reinstall. A switch via `update-alternatives --set` pins the groups to **manual**; `rocm-version-switch.sh --auto` hands them back to auto mode |
 
 `apt full-upgrade` never crosses a minor version here, because the meta-package name contains the
 version. Installing a new minor version is a **co-install** (see [playbook 0016](../playbooks/0016-version-you-can-undo.md)).
@@ -135,7 +135,13 @@ differ. On a **fresh** machine skip the co-install part and install 10.2 directl
    ```sh
    bash tools/linux/rocm/rocm-version-switch.sh --verify
    bash tools/linux/rocm/rocm-version-switch.sh --bench 30
+   # or emit the whole baseline sheet in one read-only pass:
+   bash tools/linux/rocm/collect-baseline.sh --iters 50 --out /tmp/baseline.md
    ```
+
+   Paste it into `cases/2026-11-20-rocm-10.2-coexist-upgrade/evidence/395-baseline.md` (template
+   included) and open a PR — that is how the second machine's numbers become comparable instead of
+   anecdotal.
 
 4. **PyTorch** (per-machine venv; it carries its own ROCm)
 

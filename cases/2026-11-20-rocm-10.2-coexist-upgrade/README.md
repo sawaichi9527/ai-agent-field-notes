@@ -49,6 +49,12 @@ bash tools/linux/rocm/bench-ab.sh --series "10.1 10.2 10.2 10.1" --iters 50 --co
 sudo bash tools/linux/rocm/rocm-version-switch.sh --use 10.1   # rollback
 ```
 
+## Second machine
+
+A blank measurement sheet is checked in at [`evidence/395-baseline.md`](evidence/395-baseline.md);
+`tools/linux/rocm/collect-baseline.sh` prints the same structure read-only, so filling it means
+copying numbers rather than re-deriving them.
+
 ## Applies to
 
 Both **Ryzen AI Max+ 395 (Strix Halo)** and **PRO 495 (Gorgon Halo)** are `gfx1151`, and the
