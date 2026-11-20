@@ -66,6 +66,9 @@ Not method — facts that took a while to establish, so they live in one place:
 - [Where the DSH diagnostics are](docs/dsh-diagnostics.md) — the four log/flag sources, what each
   can and cannot answer, and which claims are version-dependent
 - [Methodology](docs/methodology.md) — the reasoning order the cases follow
+- [Handover: a second `gfx1151` machine](docs/rocm-395-handover.md) — the do-this-on-the-other-box
+  checklist (platform check → install → verify → baseline → PyTorch → evidence/PR), plus what must not
+  be copied between 395 and 495
 - [ROCm on `gfx1151`](docs/rocm-gfx1151.md) — packaging model (`/opt/rocm/core-<x.y>`), kernel and GTT
   requirements, 10.1 vs 10.2 facts, why the torch venv carries its own ROCm, container-only vLLM,
   and the measured bandwidth/step baselines

@@ -51,6 +51,7 @@ sudo bash tools/linux/rocm/rocm-version-switch.sh --use 10.1   # rollback
 
 ## Second machine
 
+The handover checklist is [`docs/rocm-395-handover.md`](../../docs/rocm-395-handover.md).
 A blank measurement sheet is checked in at [`evidence/395-baseline.md`](evidence/395-baseline.md);
 `tools/linux/rocm/collect-baseline.sh` prints the same structure read-only, so filling it means
 copying numbers rather than re-deriving them.

@@ -109,6 +109,9 @@ rather than copying the number.
 
 ## 9. Bring-up checklist for the second `gfx1151` machine (e.g. a 395)
 
+> This section is the summary; the step-by-step handover page is
+> [`docs/rocm-395-handover.md`](rocm-395-handover.md).
+
 The procedure below was written on a 495 and applies unchanged to a 395; only the measured numbers
 differ. On a **fresh** machine skip the co-install part and install 10.2 directly.
 
