@@ -1,0 +1,51 @@
+# ROCm version state, before and after installing 10.2 (2026-11-20)
+# host: Ryzen AI Max+ PRO 495 / Radeon 8065S (gfx1151), Ubuntu 26.04.1, kernel 7.0.0-44-generic
+
+## Before (10.1.0-3 installed 2026-10-12)
+$ cat /opt/rocm/core-10.1/.info/version
+10.1.0
+$ dpkg -l 'amdrocm*' | awk '/^ii/{print $3}' | sort | uniq -c
+     55 10.1.0-3
+$ amd-smi version
+AMDSMI Tool: 27.1.0 | AMDSMI Library version: 27.1.0 | ROCm version: 10.1.0
+$ hipcc --version
+HIP version: 7.16.26385-0000000
+AMD clang version 24.0.0git (d6f6cb69...)
+$ ls -d /opt/rocm/core-*
+/opt/rocm/core-10.1
+
+## apt simulation before install
+$ LC_ALL=C apt-get -s install amdrocm-core-sdk10.2-gfx1151 | tail -1
+0 upgraded, 55 newly installed, 0 to remove and 1 not upgraded.
+
+## Install result
+download 1,058 MB / 2 min 01 s
+disk     declared 9,742 MB, measured 9.2 GB (/opt/rocm/core-10.2)
+
+## After
+$ ls -d /opt/rocm/core-*        # core-10 and core are alternatives links
+/opt/rocm/core-10.1
+/opt/rocm/core-10.2
+$ dpkg -l 'amdrocm*' | awk '/^ii/{print $3}' | sort | uniq -c
+     55 10.1.0-3
+     55 10.2.0-2
+$ readlink -f /opt/rocm/core
+/opt/rocm/core-10.2
+$ amd-smi version
+AMDSMI Tool: 27.2.0 | AMDSMI Library version: 27.2.0 | ROCm version: 10.2.0
+$ hipcc --version
+HIP version: 7.17.26434-0000000
+AMD clang version 24.0.0git (bdc35841...)
+
+## alternatives (26 groups switched by the 10.2 postinst, no manual step)
+core      -> /opt/rocm/core-10.2
+core-10   -> /opt/rocm/core-10.2
+hipcc     -> /opt/rocm/core-10.2/bin/hipcc
+rocminfo  -> /opt/rocm/core-10.2/bin/rocminfo
+amd-smi   -> /opt/rocm/core-10.2/bin/amd-smi
+rocm-bin  -> /opt/rocm/core-10.2/bin
+rocm-lib  -> /opt/rocm/core-10.2/lib
+amdclang  -> /opt/rocm/core-10.2/bin/amdclang
+
+## Note: 10.2 ships a `rocm-smi` again (deprecated Python CLI, symlink to
+## libexec/rocm_smi/rocm_smi.py); 10.1 had none. Use amd-smi either way.

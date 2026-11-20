@@ -1,0 +1,13 @@
+# bench: 16M floats, 192 MiB traffic per iteration, warmup 10
+# format: run  order  iters  median_ms(10.1)  median_ms(10.2)
+A  10.1->10.2  30  0.8317  0.8501     # naive: looks like 10.2 is 2.2% slower
+B  10.2->10.1  50  0.8508  0.8393     # reversed: 10.2 is 1.4% faster
+C  10.1->10.2  50  0.8434  0.8515     # runtime-only (binary compiled on 10.1), cooldown 0
+D  10.1->10.2->10.2->10.1  50  see below; cooldown 20 s
+# D raw, in measurement order:
+#   pos1 10.1 0.8376 / 240.3 GB/s
+#   pos2 10.2 0.8451 / 238.2 GB/s
+#   pos3 10.2 0.8385 / 240.1 GB/s
+#   pos4 10.1 0.8452 / 238.2 GB/s
+# D per-version mean:  10.1 0.8414 ms (239.2 GB/s) | 10.2 0.8418 ms (239.1 GB/s) -> +0.05%
+# observation: the second measurement in a pair is always 1-2% slower, whichever version it is

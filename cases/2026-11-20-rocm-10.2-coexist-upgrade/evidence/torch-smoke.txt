@@ -1,0 +1,32 @@
+# PyTorch 2.15.0+rocm10.2.0 in a venv (2026-11-20)
+# install pulls ROCm into the venv: rocm-sdk-core 480 MB, rocm-sdk-libraries 288 MB,
+# amd-torch-device-gfx1151 50 MB, amd-torch-device-gfx115x 232 MB, triton 467 MB
+# venv size after install: 6.8 GB
+
+torch        : 2.15.0+rocm10.2.0
+HIP runtime  : 7.17.26434
+device count : 1
+device       : AMD Radeon Graphics
+
+[eager] forward + backward (MLP 256-512-512-10, AdamW, batch 512)
+loss         : first=2.3050 last=0.1408
+grad norm    : 0.2092
+time         : 12.87 ms/step (20 steps)
+autocast fp16: PASS (loss finite)
+
+[torch.compile] DISABLE_ADDMM_HIP_LT=1
+# first attempt failed, unrelated to ROCm:
+#   fatal error: Python.h: no such file or directory   (-I/usr/include/python3.14)
+# fix: sudo apt install python3.14-dev
+compile time : 2.0 s
+time         : 1.09 ms/step (11.8x faster than eager)
+compile      : PASS
+
+# warnings seen (harmless):
+#   ROCm origami GEMM selection is not supported on ROCm 10.0+ (detected 10.2); origami disabled.
+#   TRITON_DEFAULT_FP_FUSION is unset: defaulting to FP fusion ENABLED ... changes in Triton 3.10
+
+# decoupling check
+$ ls $VENV/lib/python3.14/site-packages/_rocm_sdk_core/lib/libamdhip64.so.7   -> exists
+$ readelf -d .../torch/lib/libtorch_hip.so | grep RUNPATH
+  $ORIGIN/../../_rocm_sdk_core/lib/...    # torch uses the venv's ROCm, not /opt/rocm

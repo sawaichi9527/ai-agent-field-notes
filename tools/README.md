@@ -17,7 +17,14 @@ Read [`win/README.md`](win/README.md) for per-script status and limits before ru
 | A fix stopped working after an "update" — is the variant package that carries it still installed? | [`linux/probe-package-variant.sh`](linux/probe-package-variant.sh) | dpkg (read-only) | Linux |
 | A menu click "does nothing" — which stage of the launch chain is dead (entry, integrator, stale singleton lock, hidden window)? | [`linux/probe-appimage-launch-chain.sh`](linux/probe-appimage-launch-chain.sh) | bash + procps; optional xwininfo | Linux |
 | A counter says "N tokens" and stops — what did the engine actually stream, and which part was the counter not counting? | [`linux/probe-sse-delta-mix.py`](linux/probe-sse-delta-mix.py) | python3 + a server log that records SSE packets verbatim | Linux |
+| Two ROCm versions on one box: which is current, and would installing another remove anything? | [`linux/rocm/rocm-version-switch.sh`](linux/rocm/rocm-version-switch.sh) `--status` / `--plan` | dpkg + apt (read-only) | Linux |
+| Does ROCm version A differ from version B, once warmup and ordering are controlled? | [`linux/rocm/bench-ab.sh`](linux/rocm/bench-ab.sh) | `/dev/kfd`, sudo (restores at exit) | Linux |
+| Is a pinned PyTorch wheel actually running on the GPU, and does training work? | [`linux/rocm/setup-torch.sh`](linux/rocm/setup-torch.sh), [`smoke-torch.sh`](linux/rocm/smoke-torch.sh) | a venv, `/dev/kfd` | Linux |
 | — | [`linux/README.md`](linux/README.md) — the agent-CLI probes are still unwritten, and why | — | Linux |
+
+`linux/rocm/` is a **toolkit**, not a probe set: those five scripts can install, switch and remove
+ROCm. Read [`linux/rocm/README.md`](linux/rocm/README.md) and prefer `--status` / `--plan` /
+`--verify` before anything that mutates.
 
 ## Conventions
 

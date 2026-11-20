@@ -1,4 +1,4 @@
-# tools/linux — status: 4 probes
+# tools/linux — status: 4 probes + a ROCm toolkit
 
 The agent-CLI probes below are still unwritten; the two Linux probes that do exist answer
 different questions (desktop entry identity, package variant identity), because those are where
@@ -25,6 +25,15 @@ to the generic icon or could bind to an entry with a missing icon. It also repor
 capability artifact, `1` otherwise — usable as an upgrade guard. Used by
 [playbook 0007](../../playbooks/0007-same-version-different-artifact.md) and
 [`cases/2026-11-04-rustdesk-wayland-unattended/`](../../cases/2026-11-04-rustdesk-wayland-unattended/).
+
+## ROCm toolkit (not probes)
+
+[`rocm/`](rocm/) holds five scripts that **operate on** ROCm instead of observing it: version
+co-install / switch / rollback, paired A/B benchmarking, a pinned PyTorch venv, a training smoke
+test, and a fresh installer. They change packages and `update-alternatives`, so start at
+[`rocm/README.md`](rocm/README.md) and use `--status` / `--plan` / `--verify` first.
+Background: [case 2026-11-20](../../cases/2026-11-20-rocm-10.2-coexist-upgrade/),
+[docs/rocm-gfx1151.md](../../docs/rocm-gfx1151.md).
 
 ## What is still needed (agent-CLI probes)
 

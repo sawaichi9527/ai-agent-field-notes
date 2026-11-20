@@ -3,7 +3,7 @@
 State transfer document. `README.md` says what this repo is; **this file says where things stand**
 and what the next person (usually future me) has to do.
 
-Last updated: 2026-11-18 (Asia/Taipei)
+Last updated: 2026-11-20 (Asia/Taipei)
 
 ## Baseline environment
 
@@ -104,6 +104,25 @@ method: [playbook 0010](playbooks/0010-verify-a-plugin-we-can-call-its-tool.md)
 Details: [`cases/2026-11-18-lmstudio-token-counter-frozen/`](cases/2026-11-18-lmstudio-token-counter-frozen/) ·
 method: [playbook 0014](playbooks/0014-frozen-counter-is-a-claim-about-the-ui.md) ·
 probe: [`tools/linux/probe-sse-delta-mix.py`](tools/linux/probe-sse-delta-mix.py)
+
+### 6. ROCm 10.2 runs beside 10.1 on `gfx1151`, and rollback is a pointer change (2026-11-20)
+
+- Box: Ryzen AI Max+ PRO 495 / Radeon 8065S (`gfx1151`), Ubuntu 26.04.1, kernel `7.0.0-44-generic`,
+  inbox `amdgpu`. The other machine in this fleet is a Ryzen AI Max+ 395 — same `gfx1151`, same
+  packages, same procedure.
+- `apt full-upgrade` **cannot** move between ROCm minors here: the meta-package name carries the
+  version, so 10.2 is a *co-install*. Simulation said `0 upgraded, 55 newly installed, 0 to remove`.
+- Current version is whatever `update-alternatives` says (`core`, `core-10`, `hipcc`, `rocminfo`,
+  `amd-smi`, …). The 10.2 postinst switched all 26 groups itself; rollback is `--use 10.1`, no download.
+- Performance is equal: paired A/B/B/A (50 samples, 20 s cooldown) → 0.8414 vs 0.8418 ms, **+0.05 %**;
+  steady-state bandwidth 239 GB/s. Two earlier "regressions" (34 % and 2.2 %) were measurement
+  artefacts — see playbook 0017.
+- PyTorch 2.15.0+rocm10.2.0 works (eager 12.87 ms/step, `torch.compile` 1.09 ms/step after a 2.0 s
+  compile). Since 10.2 the wheel installs its **own** ROCm into the venv, so a system rollback does
+  not disturb it. `torch.compile` needs `python3.14-dev` (`Python.h`).
+- Reusable artifacts: [`cases/2026-11-20-rocm-10.2-coexist-upgrade/`](cases/2026-11-20-rocm-10.2-coexist-upgrade/),
+  [`tools/linux/rocm/`](tools/linux/rocm/), [`docs/rocm-gfx1151.md`](docs/rocm-gfx1151.md),
+  [playbook 0016](playbooks/0016-version-you-can-undo.md).
 
 ## Open
 
@@ -366,6 +385,19 @@ Keep these in mind before starting a new investigation.
     the count. Find the engine-side counter (`n_gen`, `tg`, `n_decoded`) before diagnosing a stall —
     the number on screen may simply not count what you think it counts
     ([playbook 0014](playbooks/0014-frozen-counter-is-a-claim-about-the-ui.md)).
+
+19. **A "version upgrade" whose package name contains the version is a co-install, and the package
+    manager will not cross that boundary for you.** `apt full-upgrade` did nothing while looking
+    successful, because no `amdrocm*` package was "upgradable"; the new minor is a different package
+    in a different directory. Ask `apt-get -s` for `0 to remove` before believing an upgrade is safe,
+    and record the `update-alternatives` map as the rollback point
+    ([playbook 0016](playbooks/0016-version-you-can-undo.md)).
+
+20. **One measurement per version is not a comparison.** The same GPU measured 94.6 GB/s in a
+    single-shot smoke test and 239–242 GB/s with warmup; a naive A/B said 10.2 was 2.2 % slower until
+    the order was reversed, after which 10.2 was 1.4 % *faster*. Warm up, interleave A/B/B/A, cool
+    down, compare same-position numbers, and quote the resolution next to the delta
+    ([playbook 0017](playbooks/0017-version-comparison-needs-pairing.md)).
 
 ## Handing this over
 

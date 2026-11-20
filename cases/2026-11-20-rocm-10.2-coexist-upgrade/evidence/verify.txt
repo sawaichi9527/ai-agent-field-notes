@@ -1,0 +1,21 @@
+# post-install verification, normal user (2026-11-20)
+$ rocminfo | grep -E 'Runtime Version|Marketing Name|gfx1151'
+  Runtime Version:         1.21
+    Marketing Name:          AMD Ryzen AI Max+ PRO 495 w/ Radeon 8065S
+    Name:                    gfx1151
+        Name:                    amdgcn-amd-amdhsa--gfx1151
+
+$ amd-smi static | grep TARGET_GRAPHICS_VERSION
+  TARGET_GRAPHICS_VERSION: gfx1151
+
+$ hipcc --offload-arch=gfx1151 -O2 hip-vector-add.cpp -o /tmp/hva && /tmp/hva
+Device name        : AMD Radeon Graphics
+GCN arch name      : gfx1151
+Compute units      : 20          # WGP count (rocminfo reports 40 CU)
+Total global mem   : 160.0 GiB
+Mismatches         : 0 / 4194304
+RESULT: PASS
+
+# single-shot smoke timing (NOT usable for version comparison: no warmup)
+#   single shot : 10.1 0.532 ms / 94.6 GB/s   vs   10.2 0.801 ms / 62.8 GB/s
+#   steady state: both 237-242 GB/s (see bench-ab.tsv)

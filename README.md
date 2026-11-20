@@ -34,6 +34,7 @@ evidence that you can tell a real root cause from a coincidence.
 | `apt update` ends with three `Notice:` lines every run: two `doesn't support architecture 'i386'`, one `Missing Signed-By` | apt 3.2.1 | Ubuntu 26.04.1 LTS | `i386` is a foreign architecture (kept for Steam/Wine) but those two third-party repos index **amd64 only**; and `apt modernize-sources` rewrote the NVIDIA entry with an **empty** `Signed-By` while its key stayed in `trusted.gpg.d` | [case](cases/2026-11-13-apt-update-three-notices/) · [playbook](playbooks/0011-terminal-only-output-is-not-the-output.md) |
 | The token counter on the loaded-model card sits at `125 tok` with the spinner running, while the queue fills up | LM Studio 0.4.x (llama.cpp, MTP) + `ornith-1.5-35b-a3b` Q4_K_M | Ubuntu (kernel 7.0) | the counter only counts reasoning/content chunks (110 + 15 = 125); the engine was looping `,"limit":6` inside one tool-call's JSON — 159k tokens, no `finish_reason` — and the request carried no `max_tokens` with a 262144 context | [case](cases/2026-11-18-lmstudio-token-counter-frozen/) · [playbook](playbooks/0014-frozen-counter-is-a-claim-about-the-ui.md) |
 | A coordinator's kanban worker sits at `running` for hours — heartbeat on, zero output, board never clears it | hermes-agent v0.23.2 (OPC multi-profile) + local `ornith-1.5-35b-a3b` via LM Studio @ `.217:1234` | Ubuntu (kernel 7.0) | local decode backend goes silent (HTTP 200, ~900s zero chunks) while keeping its heartbeat; kanban stale needs 3600s no-heartbeat so it's missed — same class as the frozen token counter, manifesting as zero output instead of a frozen counter | [case](cases/2026-11-18-coordinator-hung-worker-local-decode-stall/) · [playbook](playbooks/0015-stale-watchdog-is-a-timing-claim.md) |
+| `apt` lists ROCm 10.2 but `apt full-upgrade` leaves you on 10.1 — and you need a way back | ROCm Core SDK 10.1.0 → 10.2.0 (TheRock `amdrocm*` debs) | Ubuntu 26.04.1 (kernel 7.0, `gfx1151`) | the two minors are separate package sets in versioned directories (`/opt/rocm/core-10.x`); `update-alternatives` decides which is current, so installing is a **co-install** and rollback is a pointer change | [case](cases/2026-11-20-rocm-10.2-coexist-upgrade/) · [playbook](playbooks/0016-version-you-can-undo.md) |
 
 ## Playbooks (the reusable part)
 
@@ -53,6 +54,8 @@ These are tool-agnostic. Unless an entry says otherwise, they apply to any agent
 12. [A menu click that "does nothing" is a lifetime question](playbooks/0013-menu-click-noop-is-a-lifetime-question.md) — prove the entry loaded, then prove the process started *and stayed*; a self-relaunch can be killed by the app scope, and a cached `ShellApp` makes a correct fix look broken
 13. [A frozen progress counter is a claim about the UI, not the engine](playbooks/0014-frozen-counter-is-a-claim-about-the-ui.md) — find the engine's own counter (`n_gen`, `tg`), reconcile the shown number by delta arithmetic, check `finish_reason`, and only then blame the backend
 14. [A stale watchdog that times out on liveness is a claim about timing, not progress](playbooks/0015-stale-watchdog-is-a-timing-claim.md) — heartbeat on + output flat means a wedged backend; reconcile the process's own output counter with the signal the watchdog watches, and reclaim on actual output (with a wall-clock cap for "flows but never ends")
+15. [A version you must be able to undo: read the install model before upgrading](playbooks/0016-version-you-can-undo.md) — versioned package names mean a *co-install*; make `0 to remove` a gate and record the `update-alternatives` map as the rollback point
+16. [Never compare two versions with one measurement each](playbooks/0017-version-comparison-needs-pairing.md) — warm up, interleave A/B/B/A, cool down between blocks, and state the resolution; the second measurement is always slower
 
 ## Docs (product-specific reference)
 
@@ -63,6 +66,9 @@ Not method — facts that took a while to establish, so they live in one place:
 - [Where the DSH diagnostics are](docs/dsh-diagnostics.md) — the four log/flag sources, what each
   can and cannot answer, and which claims are version-dependent
 - [Methodology](docs/methodology.md) — the reasoning order the cases follow
+- [ROCm on `gfx1151`](docs/rocm-gfx1151.md) — packaging model (`/opt/rocm/core-<x.y>`), kernel and GTT
+  requirements, 10.1 vs 10.2 facts, why the torch venv carries its own ROCm, container-only vLLM,
+  and the measured bandwidth/step baselines
 
 ## Layout
 
