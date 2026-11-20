@@ -45,7 +45,9 @@ GFX=""
 ASSUME_YES=0
 ALLOW_REMOVE=0
 HIP_SRC="$SELF_DIR/src/hip-vector-add.cpp"
-[ -r "$HIP_SRC" ] || HIP_SRC="$HIP_SRC"
+[ -r "$HIP_SRC" ] || HIP_SRC="$SELF_DIR/.rocm-verify/hip-vector-add.cpp"
+BENCH_SRC="$SELF_DIR/src/bench-vector-add.cpp"
+[ -r "$BENCH_SRC" ] || BENCH_SRC="$SELF_DIR/.rocm-verify/bench-vector-add.cpp"
 SERIES_FROM_SNAPSHOT=""
 ORIG_ARGS=("$@")
 
@@ -479,8 +481,7 @@ do_bench() {
     gfx="$(detect_gfx)" || gfx=""
     iters="${1:-30}"
     cur="$(basename "$(readlink -f "$ROOT_PREFIX/core" 2>/dev/null)")"
-    [ -r "$SELF_DIR/.rocm-verify/bench-vector-add.cpp" ] \
-        || die "找不到 .rocm-verify/bench-vector-add.cpp"
+    [ -r "$BENCH_SRC" ] || die "找不到 bench-vector-add.cpp（src/ 或 .rocm-verify/）"
     if [ "$IN_SANDBOX" = "1" ]; then
         warn "/dev/kfd 不存在（沙箱環境），無法量測 GPU；請在一般終端機執行"
         return 1
@@ -488,7 +489,7 @@ do_bench() {
     log "bench：$cur（gfx=$gfx, iters=$iters）"
     tmpd="$(mktemp -d /tmp/rocm-bench.XXXXXX)"
     bin="$tmpd/bench"
-    if ! hipcc --offload-arch="$gfx" -O3 "$SELF_DIR/.rocm-verify/bench-vector-add.cpp" -o "$bin" 2>"$tmpd/cc.err"; then
+    if ! hipcc --offload-arch="$gfx" -O3 "$BENCH_SRC" -o "$bin" 2>"$tmpd/cc.err"; then
         tail -8 "$tmpd/cc.err" | sed 's/^/  /'
         rm -rf "$tmpd"
         die "bench 編譯失敗"
@@ -579,7 +580,7 @@ verify() {
             tail -5 "$tmpd/hipcc.err" | sed 's/^/  /'; warn "HIP 編譯失敗"
         fi
     else
-        echo "（找不到 .rocm-verify/hip-vector-add.cpp，略過端到端測試）"
+        echo "（找不到 hip-vector-add.cpp（src/ 或 .rocm-verify/），略過端到端測試）"
     fi
     rm -rf "$tmpd"
     echo

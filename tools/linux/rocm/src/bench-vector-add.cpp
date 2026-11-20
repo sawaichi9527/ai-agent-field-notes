@@ -94,7 +94,7 @@ int main(int argc, char** argv) {
     printf("mean_ms    : %.4f\n", sum / ms.size());
     printf("bw_min_gbs : %.1f\n", (3.0 * bytes) / (mn / 1000.0) / 1e9);
     printf("bw_med_gbs : %.1f\n", (3.0 * bytes) / (md / 1000.0) / 1e9);
-    printf("sample     : %.3f (期望 1.0 左右)\n", sample);
+    printf("sample     : %.3f (期望約 1.494 = 0x3f 填值 0.747 x2)\n", sample);
 
     CHECK(hipFree(da)); CHECK(hipFree(db)); CHECK(hipFree(dc));
     return 0;
