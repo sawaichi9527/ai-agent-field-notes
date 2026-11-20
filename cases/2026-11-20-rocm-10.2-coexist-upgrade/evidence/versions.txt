@@ -49,3 +49,26 @@ amdclang  -> /opt/rocm/core-10.2/bin/amdclang
 
 ## Note: 10.2 ships a `rocm-smi` again (deprecated Python CLI, symlink to
 ## libexec/rocm_smi/rocm_smi.py); 10.1 had none. Use amd-smi either way.
+
+## After reboot (2026-11-20 12:38, ~2 min uptime, same kernel 7.0.0-44-generic)
+$ readlink -f /opt/rocm/core
+/opt/rocm/core-10.2
+$ stat -c '%y' /etc/alternatives/core
+2026-11-20 11:31:45 +0800          # install-time timestamp, unchanged by boot
+$ update-alternatives --get-selections | awk '$1 ~ /^(core|hipcc|rocminfo|amd-smi)$/'
+core      manual /opt/rocm/core-10.2
+hipcc     manual /opt/rocm/core-10.2/bin/hipcc
+rocminfo  manual /opt/rocm/core-10.2/bin/rocminfo
+amd-smi   manual /opt/rocm/core-10.2/bin/amd-smi
+$ journalctl -b -k | grep -E 'kfd kfd|GTT memory ready|MES'
+kfd kfd: Allocated 3969056 bytes on gart
+kfd kfd: Total number of KFD nodes to be created: 1
+kfd kfd: added device 1002:1586
+amdgpu 0000:be:00.0:  163840M of GTT memory ready.
+$ rocminfo | grep -E 'Marketing Name|gfx1151'   # via --verify
+Marketing Name: AMD Ryzen AI Max+ PRO 495 w/ Radeon 8065S
+Name: gfx1151
+RESULT: PASS                        # HIP end-to-end
+
+# Conclusion: version selection lives on disk (/etc/alternatives + /var/lib/dpkg/alternatives),
+# so a reboot does not change it. Only package operations can.

@@ -48,6 +48,10 @@ rocminfo: Runtime 1.21, Marketing Name AMD Ryzen AI Max+ PRO 495, gfx1151
 HIP 向量加 419 萬元素：RESULT: PASS，0 mismatches
 ```
 
+**重開機後（12:38 複驗）**：`/opt/rocm/core` 仍指向 `core-10.2`，`/etc/alternatives/core`
+時間戳停在安裝當下、未被開機流程動過；`kfd` 重新建立 `1002:1586`、GTT 163840M、
+`rocminfo` 與 HIP 端到端皆 PASS。版本選擇是磁碟狀態，`reboot` 不會改變它——能改變的只有套件操作。
+
 回滾（10.1 從未被動到）：
 
 ```

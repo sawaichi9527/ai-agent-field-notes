@@ -11,3 +11,7 @@ D  10.1->10.2->10.2->10.1  50  see below; cooldown 20 s
 #   pos4 10.1 0.8452 / 238.2 GB/s
 # D per-version mean:  10.1 0.8414 ms (239.2 GB/s) | 10.2 0.8418 ms (239.1 GB/s) -> +0.05%
 # observation: the second measurement in a pair is always 1-2% slower, whichever version it is
+# cold-start single shot right after reboot (same hip-vector-add program):
+#   1.114 ms / 45.2 GB/s   <-- same binary that reads ~239 GB/s with warmup, i.e. the
+#   spread of a single cold launch (94.6 / 62.8 / 45.2 across three boots) is larger than
+#   any version difference ever measured here
