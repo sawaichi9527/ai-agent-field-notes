@@ -95,7 +95,9 @@ into the torch venv and couples two upgrade cycles. Run the ROCm-based image wit
 | `ROCm origami GEMM selection is not supported on ROCm 10.0+` | PyTorch-side limitation in Inductor; affects compiled GEMM tuning only |
 | 10.2 AI workloads fail on Ryzen APUs | documented for **WSL2** only (gfx1150/1151/1152/1103/1153); bare-metal Ubuntu not affected |
 
-## 8. Measured baseline (495, 160 GiB GTT, Ubuntu 26.04, kernel 7.0.0-44)
+## 8. Measured baseline (495 and 395, Ubuntu 26.04, kernel 7.0.0-44)
+
+495 (182 GiB, `ttm.pages_limit` 160 GiB):
 
 | Measurement | Value |
 |---|---|
@@ -104,8 +106,17 @@ into the torch venv and couples two upgrade cycles. Run the ROCm-based image wit
 | `rocminfo` vs HIP compute units | 40 CU reported, HIP `multiProcessorCount` 20 (WGP granularity) |
 | PyTorch eager / compiled step (MLP 256-512-512-10, batch 512) | 12.87 ms / 1.09 ms |
 
-A 395 will differ in core count and memory size but should land in the same bandwidth class; re-measure
-rather than copying the number.
+Same measurement on a **395** (121 GiB, `ttm.pages_limit` 100 GiB), 2026-11-20:
+
+| Measurement | 495 | 395 |
+|---|---|---|
+| Vector-add bandwidth (single run, warmup 10, median of 30) | 239.1 GB/s (10.2) | **228.4 GB/s** (10.2) |
+| Paired A/B/B/A, per-version mean | 10.1 239.2 / 10.2 239.1 | 10.1 226.1 / 10.2 225.0 (−0.46 %, sign flips with position → equal) |
+| LPDDR5X theoretical (256-bit) | ≈93 % | ≈89 % |
+| PyTorch eager / compiled ms/step (MLP 256-512-512-10, batch 512) | 12.87 / 1.09 | 14.37 / 1.15 |
+
+The 395 lands in the same bandwidth class but not at the same number: re-measure rather than copying
+it. Full sheet: [`cases/2026-11-20-rocm-10.2-coexist-upgrade/evidence/395-baseline.md`](../cases/2026-11-20-rocm-10.2-coexist-upgrade/evidence/395-baseline.md).
 
 ## 9. Bring-up checklist for the second `gfx1151` machine (e.g. a 395)
 
@@ -165,7 +176,7 @@ differ. On a **fresh** machine skip the co-install part and install 10.2 directl
 6. **Only if large-model loads fail**: raise GTT via `ttm.pages_limit` (section 3), then re-check
    `rocminfo` "Total global mem" from the app side. Do not copy another machine's page count blindly.
 
-## 9. Do not
+## 10. Do not
 
 - `apt install amdrocm` (all-architecture meta, 6 GB+)
 - `apt full-upgrade` expecting a ROCm version change (it does not)

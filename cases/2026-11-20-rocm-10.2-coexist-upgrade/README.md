@@ -52,8 +52,9 @@ sudo bash tools/linux/rocm/rocm-version-switch.sh --use 10.1   # rollback
 ## Second machine
 
 The handover checklist is [`docs/rocm-395-handover.md`](../../docs/rocm-395-handover.md).
-A blank measurement sheet is checked in at [`evidence/395-baseline.md`](evidence/395-baseline.md);
-`tools/linux/rocm/collect-baseline.sh` prints the same structure read-only, so filling it means
+The sheet at [`evidence/395-baseline.md`](evidence/395-baseline.md) is **filled from a real 395**
+(2026-11-20): 228.4 GB/s single run, 10.2 vs 10.1 equal within resolution again, PyTorch rows still
+open. `tools/linux/rocm/collect-baseline.sh` prints that structure read-only, so filling it means
 copying numbers rather than re-deriving them.
 
 ## Applies to
