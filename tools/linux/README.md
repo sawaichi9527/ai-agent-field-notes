@@ -12,6 +12,7 @@ the Linux cases came from.
 | [`probe-package-variant.sh`](probe-package-variant.sh) | of two conflicting packages, which is installed, and does it own the file that carries the capability? | dpkg (read-only) |
 | [`probe-appimage-launch-chain.sh`](probe-appimage-launch-chain.sh) | when a menu click does nothing: is the entry valid, is an integrator GUI in the path, is the Chromium singleton lock stale, is the window merely hidden? | bash + procps; optional xwininfo, desktop-file-validate |
 | [`probe-sse-delta-mix.py`](probe-sse-delta-mix.py) | when a UI's "N tokens" stops moving: what did the engine actually stream, how much of it was text vs tool-call arguments, and is one argument string repeating? | python3 + a server log with verbatim SSE packets |
+| [`grace/kernel-default-status.sh`](grace/kernel-default-status.sh) | which kernel does `GRUB_DEFAULT` point at, which kernel lineages are installed (nvidia-64k vs generic), and is the fallback lineage shielded from `apt autoremove`? | dpkg + apt-mark (read-only) |
 
 Exit code is `0` when identity resolves, every matching entry's `Icon` resolves at at least one
 standard size, and no explicit/exec-referencing entry is invalid; `1` when the window would fall back

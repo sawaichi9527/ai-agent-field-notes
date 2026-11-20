@@ -1,0 +1,30 @@
+# Boot-log comparison — did switching 1043 -> 1067 change kernel-side risk?
+# Collected 2026-11-20 via journalctl -b (boot 0 = 1067, boot -1 = 1043).
+
+$ systemctl --failed            # no failed units
+0
+
+# kernel warn/error/fail lines per boot (journalctl -b N | grep kernel: |
+# grep -icE 'warn|error|fail'):
+#   boot 0 (6.8.0-1067-nvidia-64k): 4
+#   boot -1 (6.8.0-1043-nvidia-64k): 4
+# identical count -> the switch introduced no new kernel-side warn/err/fail.
+
+# The known lines on boot 0 (also present on boot -1), all pre-existing:
+Nov 20 18:06:49 peer-a kernel: CPU features: detected: Broken broadcast TLBI completion
+Nov 20 18:06:49 peer-a kernel: watchdog: Delayed init of the lockup detector failed: -19
+Nov 20 18:06:49 peer-a kernel: watchdog: Hard watchdog permanently disabled
+Nov 20 18:06:49 peer-a kernel: tegra-i2c NVDA0301:00: cannot use DMA: -19
+Nov 20 18:06:49 peer-a kernel: tegra-i2c NVDA0301:00: falling back to PIO
+Nov 20 18:06:49 peer-a kernel: tegra-i2c NVDA0301:01: cannot use DMA: -19
+Nov 20 18:06:49 peer-a kernel: tegra-i2c NVDA0301:01: falling back to PIO
+
+# Interpretation (same on the previous kernel, i.e. not caused by the switch):
+# - "Broken broadcast TLBI completion" is the arm64 errata mitigation being
+#   APPLIED (kernel knows the CPU needs the safe TLBI path) - a good line.
+# - tegra-i2c DMA -19 -> PIO fallback: the SOC's i2c block has no DMA on this
+#   platform; both controllers fall back to programmed IO on every boot.
+# - the kernel watchdog ("lockup detector") cannot self-init (-19), so the
+#   kernel-side watchdog is disabled; the platform still has the SBSA Generic
+#   Watchdog via ACPI (seen in the same boot log: "found 1 SBSA generic
+#   Watchdog(s)") and systemd uses it for watchdog timeouts.

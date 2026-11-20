@@ -1,0 +1,14 @@
+# Post-switch boot identity — collected read-only 2026-11-20 18:52 (Asia/Taipei),
+# after the reboot at 18:04. Box: NVIDIA Grace C1 (peer-a), Ubuntu 24.04 nvidia-64k flavor.
+
+$ uname -r
+6.8.0-1067-nvidia-64k
+
+$ uname -a
+Linux peer-a 6.8.0-1067-nvidia-64k #70-Ubuntu SMP PREEMPT_DYNAMIC Wed Oct 28 21:19:46 UTC 2026 aarch64 aarch64 aarch64 GNU/Linux
+
+$ cat /proc/cmdline
+BOOT_IMAGE=/vmlinuz-6.8.0-1067-nvidia-64k root=/dev/mapper/ubuntu--vg--1-ubuntu--lv ro console=tty0
+
+$ getconf PAGE_SIZE
+65536

@@ -1,0 +1,28 @@
+# /etc/default/grub (first lines, grep GRUB_DEFAULT|GRUB_CMDLINE)
+
+GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 6.8.0-1067-nvidia-64k"
+GRUB_CMDLINE_LINUX_DEFAULT="console=tty0"
+GRUB_CMDLINE_LINUX=""
+
+# /boot/grub/grub.cfg — the effective pointer (grep -n 'set default')
+
+24:   set default="${next_entry}"
+29:   set default="Advanced options for Ubuntu>Ubuntu, with Linux 6.8.0-1067-nvidia-64k"
+
+# /boot/grub/grub.cfg — kernel menuentries that survive regeneration
+# (grep -n "menuentry '", filtered to Ubuntu-with-Linux + recovery)
+# Note how the previous default (1043) and even a non-viable generic 4K kernel
+# keep their own entries: update-grub regenerates the file but never drops an
+# installed kernel's submenu entry.
+
+169:    menuentry 'Ubuntu, with Linux 7.0.0-43-generic' ...
+183:    menuentry 'Ubuntu, with Linux 7.0.0-43-generic (recovery mode)' ...
+196:    menuentry 'Ubuntu, with Linux 6.8.0-1067-nvidia-64k' ...
+210:    menuentry 'Ubuntu, with Linux 6.8.0-1067-nvidia-64k (recovery mode)' ...
+223:    menuentry 'Ubuntu, with Linux 6.8.0-1043-nvidia-64k' ...
+237:    menuentry 'Ubuntu, with Linux 6.8.0-1043-nvidia-64k (recovery mode)' ...
+
+# GRUB_DEFAULT is a *pointer to a menuentry string*, not a kernel version.
+# "Advanced options for Ubuntu>" is the submenu that holds every installed
+# kernel's entry; the string after the comma selects which one.
+# The 1043 entry (223/237) is the preserved rollback path.

@@ -1,0 +1,47 @@
+# Installed vs removed nvidia-64k kernel packages (dpkg -l), 2026-11-20
+# ii  = installed;  rc = removed-but-conffiles-left (apt autoremove has run before)
+
+ii  linux-headers-6.8.0-1043-nvidia-64k           6.8.0-1043.46
+ii  linux-headers-6.8.0-1067-nvidia-64k           6.8.0-1067.70
+ii  linux-headers-nvidia-64k                      6.8.0-1067.70
+ii  linux-image-6.8.0-1043-nvidia-64k             6.8.0-1043.46
+rc  linux-image-6.8.0-1055-nvidia-64k             6.8.0-1055.58
+rc  linux-image-6.8.0-1058-nvidia-64k             6.8.0-1058.61
+rc  linux-image-6.8.0-1059-nvidia-64k             6.8.0-1059.62
+rc  linux-image-6.8.0-1060-nvidia-64k             6.8.0-1060.63
+rc  linux-image-6.8.0-1061-nvidia-64k             6.8.0-1061.64
+rc  linux-image-6.8.0-1062-nvidia-64k             6.8.0-1062.65
+rc  linux-image-6.8.0-1063-nvidia-64k             6.8.0-1063.66
+rc  linux-image-6.8.0-1064-nvidia-64k             6.8.0-1064.67
+ii  linux-image-6.8.0-1067-nvidia-64k             6.8.0-1067.70
+ii  linux-image-nvidia-64k                        6.8.0-1067.70
+ii  linux-modules-6.8.0-1043-nvidia-64k           6.8.0-1043.46
+rc  linux-modules-6.8.0-1055-nvidia-64k           6.8.0-1055.58
+rc  linux-modules-6.8.0-1058-nvidia-64k           6.8.0-1058.61
+rc  linux-modules-6.8.0-1059-nvidia-64k           6.8.0-1059.62
+rc  linux-modules-6.8.0-1060-nvidia-64k           6.8.0-1060.63
+rc  linux-modules-6.8.0-1061-nvidia-64k           6.8.0-1061.64
+rc  linux-modules-6.8.0-1062-nvidia-64k           6.8.0-1062.65
+rc  linux-modules-6.8.0-1063-nvidia-64k           6.8.0-1063.66
+rc  linux-modules-6.8.0-1064-nvidia-64k           6.8.0-1064.67
+ii  linux-modules-6.8.0-1067-nvidia-64k           6.8.0-1067.70
+ii  linux-modules-nvidia-fs-6.8.0-1043-nvidia-64k 6.8.0-1043.46
+rc  linux-modules-nvidia-fs-6.8.0-1055-nvidia-64k 6.8.0-1055.58
+rc  linux-modules-nvidia-fs-6.8.0-1058-nvidia-64k 6.8.0-1058.61
+rc  linux-modules-nvidia-fs-6.8.0-1059-nvidia-64k 6.8.0-1059.62
+rc  linux-modules-nvidia-fs-6.8.0-1060-nvidia-64k 6.8.0-1060.63
+rc  linux-modules-nvidia-fs-6.8.0-1061-nvidia-64k 6.8.0-1061.64
+rc  linux-modules-nvidia-fs-6.8.0-1062-nvidia-64k 6.8.0-1062.65
+rc  linux-modules-nvidia-fs-6.8.0-1063-nvidia-64k 6.8.0-1063.66
+rc  linux-modules-nvidia-fs-6.8.0-1064-nvidia-64k 6.8.0-1064.67
+ii  linux-modules-nvidia-fs-6.8.0-1067-nvidia-64k 6.8.0-1067.70
+ii  linux-tools-6.8.0-1043-nvidia-64k             6.8.0-1043.46
+ii  linux-tools-6.8.0-1067-nvidia-64k             6.8.0-1067.70
+
+# Reading: only the 1043 and 1067 lineages are installed. 1055...1064 are
+# already rc — a previous autoremove pass consumed the intermediate kernels.
+# That is exactly the fate a fallback kernel suffers without apt-mark manual.
+# Also noteworthy: the generic (4K) lineage coexists on disk (linux-image /
+# modules / headers for 7.0.0-xx-generic and 6.17.0-generic), which distracts
+# boot planning: GRUB offers it, needrestart calls it "expected", but on this
+# platform the generic flavor is the wrong page size (see write-up).

@@ -1,0 +1,21 @@
+# apt-mark manual — the rollback-package protection, verified 2026-11-20
+# (apt-mark showmanual | grep -E '1043|1067|1035|1055')
+
+linux-headers-6.8.0-1043-nvidia-64k
+linux-image-6.8.0-1043-nvidia-64k
+linux-modules-6.8.0-1043-nvidia-64k
+linux-modules-nvidia-fs-6.8.0-1043-nvidia-64k
+linux-nvidia-headers-6.8.0-1043
+linux-nvidia-tools-6.8.0-1043
+linux-tools-6.8.0-1043-nvidia-64k
+
+# Why this matters: apt autoremove removes packages it considers unused
+# dependencies of removed packages. A fallback kernel the boot default no
+# longer points at is exactly the shape of package apt autoremove wants to
+# prune. `apt-mark manual` tells apt "this package was installed explicitly,
+# do not auto-remove it" — the rollback kernel stays even after the package
+# manager is run by an ordinary user.
+#
+# These seven rows are the 6.8.0-1043 lineage: image, modules, nvidia-fs
+# modules, headers, tools, plus the 'linux-nvidia-headers/tools' versioned
+# pairs. 1067 (the now-current kernel) is left auto, as the active default.

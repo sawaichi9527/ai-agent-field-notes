@@ -124,6 +124,28 @@ probe: [`tools/linux/probe-sse-delta-mix.py`](tools/linux/probe-sse-delta-mix.py
   [`tools/linux/rocm/`](tools/linux/rocm/), [`docs/rocm-gfx1151.md`](docs/rocm-gfx1151.md),
   [playbook 0016](playbooks/0016-version-you-can-undo.md).
 
+### 7. Grace C1 boot kernel switched 1043 → 1067, with an autoremove-proof rollback (2026-11-20)
+
+- Box: NVIDIA Grace C1 (72-core Neoverse V2, arm64 **64K-page** requirement), Ubuntu 24.04
+  `nvidia-64k` flavor. Boot was `6.8.0-1043-nvidia-64k`; moved the default to
+  **`6.8.0-1067-nvidia-64k`** (same lineage, NVIDIA-validated).
+- The boot default is a **string pointer**, not the newest install: `GRUB_DEFAULT="Advanced options
+  for Ubuntu>Ubuntu, with Linux 6.8.0-1067-nvidia-64k"`. `update-grub` regenerates grub.cfg and
+  **keeps** the 1043 entry (including recovery), so rollback is flipping that one string and rebooting.
+- The fallback lineage is shielded from ordinary `apt autoremove` by `apt-mark manual` on the 7
+  6.8.0-1043 packages (verified via `apt-mark showmanual`). This matters: 1055 → 1064 kernels on this
+  box are already `rc` (autoremove consumed them) — without the manual mark the rollback kernel would
+  share their fate.
+- Generic (4K) kernels coexist on the box (`linux-image-7.0.0-43-generic`, GRUB offers them,
+  `needrestart` calls them "expected") but are **not bootable** on Grace — page size. Kernel choice
+  here is flavor-first.
+- Verified from the boot itself: `uname -r` = 1067, `/proc/cmdline` `BOOT_IMAGE=/vmlinuz-6.8.0-1067…`,
+  `PAGE_SIZE` = 65536. Boot-log comparison: kernel warn/err/fail = **4 on boot 0 (1067) and 4 on boot -1
+  (1043)** — identical, all pre-existing known lines; `systemctl --failed` = 0.
+- Reusable: [`cases/2026-11-20-grace-c1-kernel-undo-switch/`](cases/2026-11-20-grace-c1-kernel-undo-switch/),
+  [`tools/linux/grace/kernel-default-status.sh`](tools/linux/grace/kernel-default-status.sh),
+  [playbook 0018](playbooks/0018-boot-default-is-a-pointer.md).
+
 ## Open
 
 | # | Item | Why it matters | Starting point |
@@ -398,6 +420,13 @@ Keep these in mind before starting a new investigation.
     the order was reversed, after which 10.2 was 1.4 % *faster*. Warm up, interleave A/B/B/A, cool
     down, compare same-position numbers, and quote the resolution next to the delta
     ([playbook 0017](playbooks/0017-version-comparison-needs-pairing.md)).
+
+21. **On a boot-managed box, "newest installed" is not "what boots".** GRUB-DEFAULT is a string
+    pointer into the Advanced-options submenu; the top-level Ubuntu entry, `/boot` symlinks and
+    `needrestart` all track the newest install and disagree on purpose. And a fallback kernel the
+    pointer no longer selects is exactly what `apt autoremove` will prune — shield it with
+    `apt-mark manual`, or lose it the way this box lost kernels 1055–1064
+    ([playbook 0018](playbooks/0018-boot-default-is-a-pointer.md)).
 
 ## Handing this over
 
