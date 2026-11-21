@@ -129,11 +129,11 @@ Rules that made the edit safe:
 same options DSH uses, then walks the AST printing **key names and positions only** — never a value:
 
 ```
-重複的 key（…\.credentials.yaml）：
+duplicate keys in …\.credentials.yaml:
 
-  "GITEA_TOKEN"  （在 refs 這一層）
-    第一次  line 19, column 3
-    又出現  line 21, column 3
+  "GITEA_TOKEN"  (in refs)
+    first   line 19, column 3
+    again   line 21, column 3
 ```
 
 That is the only reason the second occurrence could be located: the product's own error stops at the
