@@ -374,6 +374,12 @@ eyeShell 圖示（使用者已確認）。
 替代方案（不想登出時）：改用新的 desktop ID（例如 `eyeShell.desktop`）強迫 Shell 建立新的
 app 物件；但登出一次是最乾淨的。
 
+**2026-11-22 後續：這個修法只是狀態修復。** 0.2.2 在同一個 session 內更新後 2 分鐘，同樣的
+`env: '…eyeShell-0.1.9…': No such file or directory` 又出現——因為 `Exec=` 含版本號，每次更新
+都讓 shell 快取的字串過期。永久修法是把 `Exec=` 改成不含版本號的 wrapper
+（`~/.local/bin/eyeshell`），讓快取字串恆定。詳見
+[`2026-11-22-eyeshell-in-session-update-shell-cache/`](../2026-11-22-eyeshell-in-session-update-shell-cache/)。
+
 ---
 
 ## 7. 沒有驗證到的事

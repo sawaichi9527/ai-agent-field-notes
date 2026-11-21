@@ -3,7 +3,7 @@
 State transfer document. `README.md` says what this repo is; **this file says where things stand**
 and what the next person (usually future me) has to do.
 
-Last updated: 2026-11-20 (Asia/Taipei)
+Last updated: 2026-11-22 (Asia/Taipei)
 
 ## Baseline environment
 
@@ -189,7 +189,7 @@ and [playbook 0020](playbooks/0020-the-terminal-is-owned-by-the-host-service.md)
 | | |
 |---|---|
 | OS | Ubuntu 26.04.1 LTS, GNOME Shell 50.1, Wayland |
-| Apps | Token Monitor **0.91.0** (0.84.1 → 0.87.0 → 0.91.0; all updates handled by the guard), eyeShell **0.1.9** (jpackage/Compose AppImage) |
+| Apps | Token Monitor **0.91.0** (0.84.1 → 0.87.0 → 0.91.0; all updates handled by the guard), eyeShell **0.2.2** (0.1.9 → 0.2.2; visible entry now runs the version-free wrapper `~/.local/bin/eyeshell`) |
 | Integrator | **AppImageLauncher 3.0.0-beta-2** (git `96cb937`) on this workstation. The first Linux case documents Gear Lever 4.6.2; Gear Lever is **not installed** here, and the generated entry shapes differ (`token_monitor.desktop` vs `appimagekit_<id>-Token_Monitor.desktop`). |
 
 **Settled — identity:** GNOME matches a window by `id == app_id + .desktop` or
@@ -225,6 +225,22 @@ the AppImage worked. The entry on disk was already 0.1.9, but (a) the hidden AL 
 shared `StartupWMClass` and (b) the running GNOME Shell had the 0.1.8 `ShellApp` command cached
 (journal showed the old path; a fresh `Gio` read 0.1.9). Dropping `StartupWMClass` from the hidden
 entry and rebooting fixed both; the user confirmed the menu and dock afterwards.
+
+**Verified — the eyeShell 0.1.9 fix was only a state reset (2026-11-22):** the same symptom came back
+after 0.2.2 was integrated **inside a live session** (login 20:30, update 01:29). The guard had
+already re-pointed `eyeshell.desktop` at 0.2.2 at 01:29:46 — `desktop-file-validate` passed and a
+fresh `Gio` read returned 0.2.2 — but the 01:30:58 click still ran the login-time command and died in
+`env: '/home/…/Applications/eyeShell-0.1.9-x86_64.AppImage': No such file or directory`. Root cause:
+`Exec=` carried the version number, so the cached `ShellApp` string expired with the file. Permanent
+fix: `Exec=/home/<you>/.local/bin/eyeshell`, a wrapper that resolves the newest
+`~/Applications/eyeShell-*.AppImage` at run time (skips `*.part`/empty/non-executable) and exports
+`APPIMAGELAUNCHER_DISABLE=1`; the guard learned `custom_exec` so it never rewrites `Exec=` back to a
+versioned path, and falls back to `env … "<AppImage>"` if the wrapper is missing. Verified before the
+reboot with `eyeshell --appimage-version` (`APPIMAGELAUNCHER_DISABLE set, launching AppImage directly`)
+and after it by the user's click at 01:52:41 (journal: wrapper executed by gnome-shell, `app-gnome-
+eyeshell-*.scope`, app log `eyeShell=0.2.2`). Details:
+[`cases/2026-11-22-eyeshell-in-session-update-shell-cache/`](cases/2026-11-22-eyeshell-in-session-update-shell-cache/),
+[playbook 0012](playbooks/0012-bisect-the-launch-chain.md).
 
 **Settled — a menu click is a five-stage chain, and all three of its silent failures were live at once
 (2026-11-13).** Token Monitor 0.91.0 + AppImageLauncher 3.0.0-beta-2: clicking the app-grid icon did
@@ -276,8 +292,10 @@ that only has root `eyeshell.png` + `.DirIcon`; packaging the seven sizes under
 the AppImage in use was not rebuilt. (2) Token Monitor's bundle still ships
 `StartupWMClass=Token Monitor` while its app_id is `token-monitor`. (3) GNOME caches the `ShellApp`
 command line/icon for the session; after `Exec=`/`Icon=` changes the menu can keep running the old
-path while a fresh `Gio` reads the new one. Log out/in or reboot (or use a new desktop ID). (4) A
-silently broken guard looks exactly like the original bug — re-verify after updates. (5) Token
+path while a fresh `Gio` reads the new one. Log out/in or reboot (or use a new desktop ID) — and keep
+`Exec=` version-free, or the next in-session update re-arms the trap (eyeShell does; Token Monitor
+still does not). (4) A silently
+broken guard looks exactly like the original bug — re-verify after updates. (5) Token
 Monitor's upstream `startWithXWayland` discards the child's stdio and exits the parent before the
 child is ready; the `Exec` flag is a workaround, not a fix at the source.
 

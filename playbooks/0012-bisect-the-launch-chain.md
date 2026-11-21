@@ -84,7 +84,7 @@ a process that then yields to an instance that is not there.
 
 | Seam | What it buys |
 |---|---|
-| **a wrapper as `Exec=`** | survives integrator rewrites and version-renamed files; the only place to set environment the interpreter reads (`APPIMAGELAUNCHER_DISABLE=1`) |
+| **a wrapper as `Exec=`** | survives integrator rewrites and version-renamed files; the only place to set environment the interpreter reads (`APPIMAGELAUNCHER_DISABLE=1`); and it keeps the shell's cached command **identical across updates**, so an in-session update cannot turn a working click into `env: '…': No such file or directory` |
 | **clearing a stale lock before `exec`** | turns the silent 1.3 s exit back into a cold start; must check holder-alive *and* socket-exists |
 | **turning off the writer** | a path-unit that repairs a file is useless if a daemon rewrites it at login — disable the daemon, then heal |
 
@@ -93,6 +93,8 @@ a process that then yields to an instance that is not there.
 - An exit code of 0 is not evidence of success when the app is single-instance; it is evidence that
   the app reached the lock.
 - `No such file or directory` from `env:` means the *shell's memory* is stale, not the disk.
+- A reboot is a state reset, not a fix: if `Exec=` contains the version number, the next update
+  re-arms the same trap — make the command string version-free.
 - A "repair" that never observed a failing input proves nothing; plant a stale lock and re-run.
 - Never classify a GUI launch from inside the agent sandbox — the PID namespace hides the host and
   AppArmor can make `exec` fail with a permission error that looks like the user's bug.
