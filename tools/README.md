@@ -13,6 +13,7 @@ Read [`win/README.md`](win/README.md) for per-script status and limits before ru
 | Which process creates the console window that keeps flashing? | [`win/watch-console-windows.ps1`](win/watch-console-windows.ps1) | nothing (read-only) | Windows |
 | Does this two-hop spawn chain create a **visible** console? | [`win/probe-console-visible.ps1`](win/probe-console-visible.ps1) | a normal (non-sandboxed) terminal | Windows |
 | Which **one** spawn option changes the behaviour? | [`win/isolate-spawn-options.ps1`](win/isolate-spawn-options.ps1) | a normal terminal | Windows |
+| Which key is duplicated in a store that only reports `DUPLICATE_KEY at line L, column C`? | [`win/probe-store-duplicate-keys.ps1`](win/probe-store-duplicate-keys.ps1) | node + an installed CLI that ships `yaml` (read-only) | Windows |
 | Which kernel does the boot pointer select, and is the fallback shielded from `apt autoremove`? | [`linux/grace/kernel-default-status.sh`](linux/grace/kernel-default-status.sh) | dpkg + apt-mark (read-only) | Linux |
 | Does a window's `app_id` resolve to a **usable** `.desktop` entry (right icon, no duplicate, valid file)? | [`linux/probe-desktop-match.sh`](linux/probe-desktop-match.sh) | python3 + PyGObject + Gtk 3 typelib | Linux |
 | A fix stopped working after an "update" — is the variant package that carries it still installed? | [`linux/probe-package-variant.sh`](linux/probe-package-variant.sh) | dpkg (read-only) | Linux |

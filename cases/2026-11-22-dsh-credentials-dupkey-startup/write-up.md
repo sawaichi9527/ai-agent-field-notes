@@ -3,7 +3,7 @@
 - **日期**：2026-11-22（Asia/Taipei）
 - **環境**：Windows 10 Enterprise LTSC，DSH CLI `@deepseek-ai/dsh` **0.2.2-rc.5**，npm **12.2.3**，profile `web`，外掛 `dshmarket` 1.77.0、第三方 `dsh-gitea`
 - **英文摘要**：[`README.md`](README.md)；**可重用方法**：[playbook 0021](../../playbooks/0021-a-required-plugin-fails-on-its-data-file.md)、[playbook 0022](../../playbooks/0022-an-install-script-warning-is-not-a-missing-artifact.md)
-- **探針**：[`find-duplicate-keys.mjs`](find-duplicate-keys.mjs)
+- **探針**：[`tools/win/probe-store-duplicate-keys.ps1`](../../tools/win/probe-store-duplicate-keys.ps1)
 
 ## 背景
 
@@ -73,12 +73,17 @@ records:                   # <owner>/<id> → 帶型別的紀錄
 mapping 的重複 key，只輸出**key 名稱 + 行/列**：
 
 ```
-重複的 key（C:\Users\<you>\.dsh\.credentials.yaml）：
+duplicate keys in C:\Users\<you>\.dsh\.credentials.yaml:
 
-  "GITEA_TOKEN"  （在 refs 這一層）
-    第一次  line 19, column 3
-    又出現  line 21, column 3
+  "GITEA_TOKEN"  (in refs)
+    first   line 19, column 3
+    again   line 21, column 3
 ```
+
+實作上是一個 PowerShell 外殼（`probe-store-duplicate-keys.ps1`）加一段 Node 核心：外殼把核心寫成
+`%TEMP%` 下的暫存 `.mjs`，把子行程輸出**重導到檔案再讀回**（不經管線），結束後刪掉這兩個暫存檔。
+條目目前標記為 `template` —— Node 核心已在四個輸入上驗證（重複、正常、tab 縮排、檔不存在），
+PowerShell 外殼還要在 Windows 實機跑一次才能轉 `proven`。
 
 實際檔案是這樣（第 20 行是空行或註解）：
 
@@ -110,10 +115,10 @@ mapping 的重複 key，只輸出**key 名稱 + 行/列**：
 copy "$env:USERPROFILE\.dsh\.credentials.yaml" "$env:USERPROFILE\.dsh\.credentials.yaml.bak"
 
 # 2. 找出重複（不印值）
-node find-duplicate-keys.mjs "$env:USERPROFILE\.dsh\.credentials.yaml"
+pwsh -File tools\win\probe-store-duplicate-keys.ps1 -Path "$env:USERPROFILE\.dsh\.credentials.yaml"
 
 # 3. 刪掉重複的那一行，再驗一次
-node find-duplicate-keys.mjs "$env:USERPROFILE\.dsh\.credentials.yaml"   # → OK
+pwsh -File tools\win\probe-store-duplicate-keys.ps1 -Path "$env:USERPROFILE\.dsh\.credentials.yaml"   # → OK
 dsh web
 ```
 
@@ -130,7 +135,7 @@ dsh web
 
 | 檢查 | 預期 |
 |---|---|
-| `node find-duplicate-keys.mjs …` | `OK`，沒有重複 key |
+| `probe-store-duplicate-keys.ps1 -Path …` | `OK`，沒有重複 key |
 | `dsh web` | 進到 Web UI，沒有 `startup failed` |
 | 外掛狀態 | 12 個等待中的外掛全部啟用；`dsh-gitea` 可呼叫 `gitea_whoami` |
 | 終端機面板 `dir` | node-pty 正常 |

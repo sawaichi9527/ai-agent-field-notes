@@ -1,7 +1,10 @@
 # tools/win
 
-All four are PowerShell 7 scripts, single file, no external modules. None of them installs,
-deletes, or reconfigures anything.
+All five are PowerShell 7 scripts, single file, no external modules. None of them installs,
+deletes, or reconfigures anything. `probe-store-duplicate-keys.ps1` is the one exception in another
+sense: it shells out to `node` (and borrows the `yaml` package from an installed CLI) because a
+line-based re-implementation of YAML would mis-read block scalars; it writes one temporary `.mjs` and
+one output file under `%TEMP%` and removes both.
 
 | Script | Status | Touches | Typical runtime | Read first |
 |---|---|---|---|---|
@@ -9,6 +12,7 @@ deletes, or reconfigures anything.
 | `watch-console-windows.ps1` | proven | nothing (read-only) | any duration | [playbook 0003](../../playbooks/0003-catch-short-lived-windows.md) |
 | `probe-console-visible.ps1` | template | spawns short-lived processes | ~20 s | [playbook 0005](../../playbooks/0005-windows-console-window-rules.md) |
 | `isolate-spawn-options.ps1` | template | spawns short-lived processes | ~30 s | [playbook 0005](../../playbooks/0005-windows-console-window-rules.md) |
+| `probe-store-duplicate-keys.ps1` | template | nothing on the target (read-only); one temp `.mjs` + one temp output file | < 1 s | [playbook 0021](../../playbooks/0021-a-required-plugin-fails-on-its-data-file.md) |
 
 ## Choose in one line
 
@@ -16,6 +20,7 @@ deletes, or reconfigures anything.
 - Something flashes on screen → `watch-console-windows.ps1`
 - You have a theory that a spawn chain causes the flash → `probe-console-visible.ps1`
 - You have two candidate spawn options and cannot tell which matters → `isolate-spawn-options.ps1`
+- A store fails to parse with `DUPLICATE_KEY at line L, column C` and you need the key name → `probe-store-duplicate-keys.ps1`
 
 ## Hard requirement
 

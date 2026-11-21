@@ -3,7 +3,7 @@
 **Tool:** DSH CLI 0.2.2-rc.5 (`@deepseek-ai/dsh`, npm 12.2.3), profile `web`, market plugin `dshmarket` 1.77.0 · **OS:** Windows 10 Enterprise LTSC · **Date:** 2026-11-22
 **Full write-up (Chinese):** [`write-up.md`](write-up.md)
 **Reusable method:** [playbook 0021](../../playbooks/0021-a-required-plugin-fails-on-its-data-file.md) · [playbook 0022](../../playbooks/0022-an-install-script-warning-is-not-a-missing-artifact.md)
-**Probe:** [`find-duplicate-keys.mjs`](find-duplicate-keys.mjs)
+**Probe:** [`tools/win/probe-store-duplicate-keys.ps1`](../../tools/win/probe-store-duplicate-keys.ps1)
 
 > **STATUS: fixed by deleting one line.** No reinstall, no reboot, no version change. The interesting
 > part is not the typo: (a) one duplicated key in a **data** file stopped 13 plugins, and (b) the
@@ -101,13 +101,13 @@ The durable lesson: **the second identical error after an "update" is evidence, 
 copy "$env:USERPROFILE\.dsh\.credentials.yaml" "$env:USERPROFILE\.dsh\.credentials.yaml.bak"
 
 # 2. find the duplicate without printing values
-node find-duplicate-keys.mjs "$env:USERPROFILE\.dsh\.credentials.yaml"
+pwsh -File tools\win\probe-store-duplicate-keys.ps1 -Path "$env:USERPROFILE\.dsh\.credentials.yaml"
 #   "GITEA_TOKEN"  (in refs)
 #     first   line 19, column 3
 #     again   line 21, column 3
 
 # 3. delete the duplicate line, then verify
-node find-duplicate-keys.mjs "$env:USERPROFILE\.dsh\.credentials.yaml"   # → OK
+pwsh -File tools\win\probe-store-duplicate-keys.ps1 -Path "$env:USERPROFILE\.dsh\.credentials.yaml"   # → OK
 dsh web
 ```
 
@@ -125,8 +125,11 @@ Rules that made the edit safe:
 
 ## The probe
 
-`find-duplicate-keys.mjs` loads the `yaml` package **from the installed dsh** and parses with the
-same options DSH uses, then walks the AST printing **key names and positions only** — never a value:
+`tools/win/probe-store-duplicate-keys.ps1` is a PowerShell wrapper around a ~70-line Node core. It
+loads the `yaml` package **from the installed dsh** (`npm root -g`), parses with the same options DSH
+uses, and walks the AST printing **key names and positions only** — never a value. The wrapper writes
+one temporary `.mjs` under `%TEMP%`, redirects the child's output to a file (never a pipe), reads it
+back, and deletes both.
 
 ```
 duplicate keys in …\.credentials.yaml:
@@ -171,7 +174,7 @@ Method, flags and the persistent-config caveat: [playbook 0022](../../playbooks/
 
 | Check | Expected |
 |---|---|
-| `node find-duplicate-keys.mjs …` | `OK`, no duplicate keys |
+| `probe-store-duplicate-keys.ps1 -Path …` | `OK`, no duplicate keys |
 | `dsh web` | reaches the Web UI with no `startup failed` line |
 | plugin panel / startup lines | the 12 waiting plugins activate; `dsh-gitea` can call `gitea_whoami` |
 | terminal panel, `dir` | node-pty works after the reinstall |

@@ -9,8 +9,8 @@ Last updated: 2026-11-22 (Asia/Taipei)
 
 | | |
 |---|---|
-| Agent CLI | `@deepseek-ai/dsh` **0.2.1-rc.5** |
-| Node | v24.21.0 (npm 11.19.0) |
+| Agent CLI | `@deepseek-ai/dsh` **0.2.2-rc.5** (registry `latest` on 2026-11-22) |
+| Node | v24.21.0 (npm **12.2.3**, re-measured 2026-11-22) |
 | OS | Windows 10 Enterprise LTSC 2019, build 17763.9376 |
 | CPU | Intel Core 2 Quad Q9500 @ 2.83 GHz (4 threads, 2008) |
 | Profile | 10 bundles = 2 official + 8 third-party |
@@ -174,6 +174,28 @@ terminal opened from `dsh-better-sidebar` **0.32.1** still spawned the built-in 
 
 Details: [`cases/2026-11-21-dsh-portable-pwsh-terminal-win/`](cases/2026-11-21-dsh-portable-pwsh-terminal-win/)
 and [playbook 0020](playbooks/0020-the-terminal-is-owned-by-the-host-service.md).
+
+### 9. A duplicated key in `.credentials.yaml` fails the whole start; the store is strict and its error is positional (2026-11-22)
+
+One repeated `GITEA_TOKEN` line (line 19 and line 21, both direct children of `refs:`) stopped
+`dsh web` with `startup failed: 1 required plugin did not activate`. Three facts worth keeping:
+
+- **`credentials` is required, so a data-file parse error is fatal, not local.** The 12 plugins under
+  "waiting for services" are one dependency cascade (`connection` → `credentials`;
+  `session-controller` → `fileUploads` → `connection`), not 12 separate bugs.
+- **`dsh-credentials-local` parses with `uniqueKeys: true`**, and its diagnostic is `code + line/col`
+  only — the parser's own message would quote the offending line, which in this file is the secret.
+  Column 3 = a direct child of `refs:`/`records:` = a repeated credential name or record id.
+- **A package update cannot fix it.** On 2026-11-22 registry `latest` was already 0.2.2-rc.5, so
+  `npm update -g` was churn; the *identical* `DUPLICATE_KEY at line 21, column 3` after the update was
+  the evidence pointing at the file rather than the version.
+
+Fix: back up, delete the repeated line (never blank the value — an empty string is rejected on
+purpose), start again; no reboot or reinstall needed. Probe:
+[`tools/win/probe-store-duplicate-keys.ps1`](tools/win/probe-store-duplicate-keys.ps1) (currently
+`template` — Node core verified, PowerShell wrapper still needs one run on this box).
+Details: [`cases/2026-11-22-dsh-credentials-dupkey-startup/`](cases/2026-11-22-dsh-credentials-dupkey-startup/)
+and [playbook 0021](playbooks/0021-a-required-plugin-fails-on-its-data-file.md).
 
 ## Open
 
@@ -510,6 +532,13 @@ Keep these in mind before starting a new investigation.
     pointer no longer selects is exactly what `apt autoremove` will prune — shield it with
     `apt-mark manual`, or lose it the way this box lost kernels 1055–1064
     ([playbook 0018](playbooks/0018-boot-default-is-a-pointer.md)).
+
+22. **A blocked lifecycle script is a policy message, and `npm install -g` needs a package name.**
+    npm 12 gates install scripts behind `allowScripts`; the warning repeating on every run proves
+    nothing broke, and npm's own suggested rerun command fails with `ENOENT … \package.json` unless a
+    package is named. Check for a shipped artifact first (`@koromix/koffi-<platform>`,
+    `node-pty/prebuilds/`), and remember `.npmrc`'s `allow-scripts` **replaces** the whole list
+    ([playbook 0022](playbooks/0022-an-install-script-warning-is-not-a-missing-artifact.md)).
 
 ## Handing this over
 

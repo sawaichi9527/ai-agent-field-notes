@@ -42,6 +42,8 @@ parseDocument(text, { uniqueKeys: true, prettyErrors: true })
 
 then walk the AST and report every key that repeats inside one mapping, with all of its positions.
 Print key names and positions only — a duplicate-key checker that echoes the line is a leak.
+A Windows implementation that borrows `yaml` from the installed CLI:
+[`tools/win/probe-store-duplicate-keys.ps1`](../tools/win/probe-store-duplicate-keys.ps1).
 
 Two properties make this reliable enough to act on:
 
