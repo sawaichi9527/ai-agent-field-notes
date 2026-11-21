@@ -4,7 +4,7 @@ Locate duplicate keys in a YAML document that is parsed with duplicate-key rejec
 
 .DESCRIPTION
 A store parsed with `uniqueKeys` fails on a repeated key, and a strict loader may report only
-`CODE at line L, column C` — because the parser's own message quotes the offending line, and in a
+`CODE at line L, column C` -- because the parser's own message quotes the offending line, and in a
 credential store that line is the secret. This probe recovers the key name: it parses with the
 same `yaml` package and options the CLI uses, walks the AST, and prints **key names and positions
 only, never a value**.
@@ -33,8 +33,13 @@ duplicate keys in <path>:
 
 .NOTES
 Exit codes: 0 clean, 1 duplicates found, 2 file/loader problem, 3 another YAML error.
-Status: template — the Node core is verified (four inputs: duplicate, clean, tab indent, missing
-file); the PowerShell wrapper has not yet been run on Windows. Mark it proven after one real run.
+Status: template -- the Node core is verified (four inputs: duplicate, clean, tab indent, missing
+file); the PowerShell wrapper has not been run to completion on Windows yet. Mark it proven after
+one real run.
+
+This file is ASCII-only on purpose. Windows PowerShell 5.1 decodes a BOM-less script with the system
+ANSI code page, so a non-ASCII character (an em dash was enough) inside the embedded JavaScript
+corrupts a string literal and fails at the temp file, not here. Keep it ASCII.
 #>
 [CmdletBinding()]
 param(
@@ -59,7 +64,7 @@ if (-not $DshRoot) {
         $globalRoot = (& npm root -g 2>$null)
         if ($globalRoot) { $candidates += (Join-Path $globalRoot '@deepseek-ai/dsh') }
     } catch {
-        # npm not on PATH — fall through
+        # npm not on PATH -- fall through
     }
     if ($env:APPDATA) {
         $candidates += (Join-Path $env:APPDATA 'npm\node_modules\@deepseek-ai\dsh')
@@ -153,7 +158,7 @@ if (duplicates.length > 0) {
     console.log('')
   }
   console.log('Fix: keep one occurrence per key in each mapping; delete the repeated line')
-  console.log('     (and its indented block, for a multi-line record). Do not blank the value —')
+  console.log('     (and its indented block, for a multi-line record). Do not blank the value --')
   console.log('     an empty string is rejected too; remove the key instead.')
 } else {
   console.log('YAML parse errors in ' + file + ':')
@@ -162,28 +167,42 @@ if (duplicates.length > 0) {
     console.log('  ' + e.code + (at ? ' at ' + at : ''))
   }
   console.log('')
-  console.log('(no duplicate keys — this is a different parse error)')
+  console.log('(no duplicate keys -- this is a different parse error)')
 }
 
 process.exit(duplicates.length > 0 ? 1 : 3)
 '@
 
+$node = $null
+try {
+    $node = (Get-Command node -ErrorAction Stop).Source
+} catch {
+    Write-Error -Message 'node is not on PATH; the yaml parse needs it' -ErrorAction Continue
+    exit 2
+}
+
 $tempJs = Join-Path ([IO.Path]::GetTempPath()) ("probe-dupkey-{0}.mjs" -f $PID)
 $tempOut = Join-Path ([IO.Path]::GetTempPath()) ("probe-dupkey-{0}.out" -f $PID)
+$tempErr = Join-Path ([IO.Path]::GetTempPath()) ("probe-dupkey-{0}.err" -f $PID)
 
 try {
-    Set-Content -LiteralPath $tempJs -Value $core -Encoding utf8
+    # ASCII encoding: the core is ASCII on purpose, so no code page can corrupt it.
+    Set-Content -LiteralPath $tempJs -Value $core -Encoding ascii
+    # Start-Process keeps stdout and stderr off PowerShell's error stream: with
+    # $ErrorActionPreference = 'Stop', a native command's stderr becomes a terminating
+    # error and would abort before the exit code is read.
     try {
-        & node $tempJs *> $tempOut
+        $process = Start-Process -FilePath $node -ArgumentList @(('"{0}"' -f $tempJs)) `
+            -NoNewWindow -Wait -PassThru `
+            -RedirectStandardOutput $tempOut -RedirectStandardError $tempErr
     } catch {
         Write-Error -Message "cannot run node: $($_.Exception.Message)" -ErrorAction Continue
         exit 2
     }
-    $exitCode = $LASTEXITCODE
-    if (Test-Path -LiteralPath $tempOut) {
-        Get-Content -LiteralPath $tempOut | Write-Output
-    }
+    $exitCode = $process.ExitCode
+    if (Test-Path -LiteralPath $tempOut) { Get-Content -LiteralPath $tempOut | Write-Output }
+    if (Test-Path -LiteralPath $tempErr) { Get-Content -LiteralPath $tempErr | Write-Output }
     exit $exitCode
 } finally {
-    Remove-Item -LiteralPath $tempJs, $tempOut -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $tempJs, $tempOut, $tempErr -Force -ErrorAction SilentlyContinue
 }

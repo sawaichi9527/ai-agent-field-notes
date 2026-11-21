@@ -128,8 +128,8 @@ Rules that made the edit safe:
 `tools/win/probe-store-duplicate-keys.ps1` is a PowerShell wrapper around a ~70-line Node core. It
 loads the `yaml` package **from the installed dsh** (`npm root -g`), parses with the same options DSH
 uses, and walks the AST printing **key names and positions only** — never a value. The wrapper writes
-one temporary `.mjs` under `%TEMP%`, redirects the child's output to a file (never a pipe), reads it
-back, and deletes both.
+one temporary `.mjs` under `%TEMP%`, redirects the child's stdout and stderr to files (never a pipe),
+reads them back, and deletes all three.
 
 ```
 duplicate keys in …\.credentials.yaml:
