@@ -146,6 +146,35 @@ probe: [`tools/linux/probe-sse-delta-mix.py`](tools/linux/probe-sse-delta-mix.py
   [`tools/linux/grace/kernel-default-status.sh`](tools/linux/grace/kernel-default-status.sh),
   [playbook 0018](playbooks/0018-boot-default-is-a-pointer.md).
 
+### 8. The sidebar terminal is owned by the host `webTerminals` service; its shell comes from the host `terminal-controller` config (2026-11-21)
+
+DSH's `pwsh` tool already ran portable PowerShell **7.6.10** (`dsh-power-xc` `pwshPath`), but a
+terminal opened from `dsh-better-sidebar` **0.32.1** still spawned the built-in Windows PowerShell
+**5.1**. Two facts make this a general trap:
+
+- **The plugin has no PTY** in 0.32.1. It drives the host `ctx.webTerminals`
+  (`@deepseek-ai/dsh-api-terminal-controller` client half) and its `service.view(sessionId,
+  contentId, contentId)` call carries **no shellPath**. The shell decision chain — source `shells.ts`
+  / `client/model.ts` on CLI **0.2.2-rc.5** — is: `Config.shell` of the `terminal-controller` entry →
+  else the environment default (Windows → built-in PowerShell); a new terminal without an explicit
+  shell takes `discoverShells()[0]` (configured/default first), **unless** localStorage
+  `dsh.terminal.shell` matches by exact path.
+- **The fix is a profile overlay for the host service entry**, never the plugin:
+  `config.shell = {path: C:/workspace/bin/pwsh7-7.6.10/pwsh.exe, name: …, args: ["-NoLogo"]}`.
+  On 0.2.2-rc.5 the profile's `patchReload: "live"` hot-applies a config change that **passes
+  validation** — no restart (this differs from a config that fails validation; that still needs a
+  restart, see the 2026-11-13 dsh-gitea case). Composed tree verified with
+  `dsh --profile web --dump-config` (needs full access: the agent sandbox EPERMs on the `.dsh` read);
+  spawn verified with `$PSVersionTable.PSVersion.ToString(); (Get-Process -Id $PID).Path`
+  → `7.6.10` + `C:\workspace\bin\pwsh7-7.6.10\pwsh.exe`, in a **NEW** terminal (already-open terminals
+  keep their old process).
+- **Portable-pack trap:** portable pwsh's `PSModulePath` is relative to the exe dir
+  (`<exe dir>\Modules`); a mixed or damaged pack folder (the earlier `pwsh7` 7.4.6 folder) poisons
+  every host that loads it — replace it whole, never repair in place.
+
+Details: [`cases/2026-11-21-dsh-portable-pwsh-terminal-win/`](cases/2026-11-21-dsh-portable-pwsh-terminal-win/)
+and [playbook 0020](playbooks/0020-the-terminal-is-owned-by-the-host-service.md).
+
 ## Open
 
 | # | Item | Why it matters | Starting point |
@@ -378,7 +407,9 @@ Keep these in mind before starting a new investigation.
    *how long* a startup took. Use the restart-helper log for wall-clock, and measure for real numbers.
 7. **Version-dependent claims rot silently.** One older note in this repo said a patch edit reloads
    live via `patchReload: live`; on 0.2.1-rc.5 that key does not exist anywhere in the shipped code.
-   When you write "no restart needed", record the version — see
+   On **0.2.2-rc.5** it exists, and a config change that **passes validation** hot-applies without a
+   restart (2026-11-21 portable-pwsh case); a config that **fails validation** still needs a full
+   restart (2026-11-13 dsh-gitea case). When you write "no restart needed", record the version — see
    [docs/dsh-diagnostics.md](docs/dsh-diagnostics.md).
 8. **An identity-only probe can say `RESOLVED` while the dock still shows a gear.** It checks which
    entry matches, not whether that entry is loadable or whether its `Icon=` resolves. The
