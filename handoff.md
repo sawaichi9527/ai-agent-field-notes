@@ -197,6 +197,28 @@ purpose), start again; no reboot or reinstall needed. Probe:
 Details: [`cases/2026-11-22-dsh-credentials-dupkey-startup/`](cases/2026-11-22-dsh-credentials-dupkey-startup/)
 and [playbook 0021](playbooks/0021-a-required-plugin-fails-on-its-data-file.md).
 
+### 10. RustDesk on Windows was in normal-app mode; "x closes everything" and "no auto-start" are the same missing component (2026-11-22)
+
+Neither boot auto-start nor the bottom-right tray existed because the Windows service had never
+been installed — the app was just a regular GUI app (main + `--cm` process), and "x" ends that
+whole set. The always-on mode is a registered Windows service **"RustDesk Service"**
+(`RustDesk.exe --service`, LocalSystem, AUTO_START) plus a separate `--tray` process.
+
+- **Recognise from the process list, not the window.** `"No tray process found. Try to restore the
+  main window process..."` already appeared in the update log on 2026-11-13 — the tray was simply
+  never installed, not crashed.
+- **Fix:** `& "C:\Program Files\RustDesk\RustDesk.exe" --install-service -wait -Verbose` — a GUI
+  binary gives no exit code, and registration takes ~20 s, so an early `Get-Service` returning
+  nothing is a timing artifact, not a failure.
+- **Verify from the service, not the window:** `Get-Service RustDesk` → Running, display name
+  "RustDesk Service"; `sc.exe qc RustDesk` → `START_TYPE 2 AUTO_START`, `SERVICE_START_NAME
+  LocalSystem`, `BINARY_PATH_NAME "C:\Program Files\RustDesk\RustDesk.exe" --service`. After the
+  install a main process (no args) and a `--tray` process coexist — the "x no longer kills
+  everything" proof.
+
+Details: [`cases/2026-11-22-rustdesk-service-mode-win/`](cases/2026-11-22-rustdesk-service-mode-win/)
+and [playbook 0023](playbooks/0023-always-on-is-an-installed-service.md).
+
 ## Open
 
 | # | Item | Why it matters | Starting point |
@@ -548,6 +570,15 @@ Keep these in mind before starting a new investigation.
     `$ErrorActionPreference = 'Stop'`, a native command's stderr becomes a terminating error before
     you can read `$LASTEXITCODE` -- use `Start-Process -Wait -RedirectStandardOutput/-RedirectStandardError`
     instead of `& tool 2>`.
+
+24. **In a Windows remote-access app, "x closes everything" and "no auto-start" are one missing
+    component, and the first `Get-Service` check lies.** RustDesk (and similar) ship two modes:
+    normal-app (main + `--cm`; "x" ends the whole set, nothing stays) vs a registered Windows
+    service (`--service`, LocalSystem, AUTO_START) + a separate `--tray` process. "No tray process
+    found" in the logs means the service was never installed, not that the tray crashed. After
+    `--install-service`, registration takes ~20 s — a `Get-Service` run too early returns nothing;
+    prove with `sc.exe qc` (start type / account / binary path) once it settles
+    ([playbook 0023](playbooks/0023-always-on-is-an-installed-service.md)).
 
 ## Handing this over
 
