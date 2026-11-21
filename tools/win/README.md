@@ -12,7 +12,7 @@ two capture files under `%TEMP%` and removes all three.
 | `watch-console-windows.ps1` | proven | nothing (read-only) | any duration | [playbook 0003](../../playbooks/0003-catch-short-lived-windows.md) |
 | `probe-console-visible.ps1` | template | spawns short-lived processes | ~20 s | [playbook 0005](../../playbooks/0005-windows-console-window-rules.md) |
 | `isolate-spawn-options.ps1` | template | spawns short-lived processes | ~30 s | [playbook 0005](../../playbooks/0005-windows-console-window-rules.md) |
-| `probe-store-duplicate-keys.ps1` | template | nothing on the target (read-only); one temp `.mjs` + two capture files | < 1 s | [playbook 0021](../../playbooks/0021-a-required-plugin-fails-on-its-data-file.md) |
+| `probe-store-duplicate-keys.ps1` | proven (2026-11-22, Windows PowerShell 5.1) | nothing on the target (read-only); one temp `.mjs` + two capture files | < 1 s | [playbook 0021](../../playbooks/0021-a-required-plugin-fails-on-its-data-file.md) |
 
 ## Choose in one line
 

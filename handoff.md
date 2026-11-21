@@ -192,8 +192,8 @@ One repeated `GITEA_TOKEN` line (line 19 and line 21, both direct children of `r
 
 Fix: back up, delete the repeated line (never blank the value — an empty string is rejected on
 purpose), start again; no reboot or reinstall needed. Probe:
-[`tools/win/probe-store-duplicate-keys.ps1`](tools/win/probe-store-duplicate-keys.ps1) (currently
-`template` — Node core verified, PowerShell wrapper still needs one run on this box).
+[`tools/win/probe-store-duplicate-keys.ps1`](tools/win/probe-store-duplicate-keys.ps1) (`proven`
+2026-11-22 on Windows PowerShell 5.1: exit 0, `OK: ... has no duplicate keys and parses.`).
 Details: [`cases/2026-11-22-dsh-credentials-dupkey-startup/`](cases/2026-11-22-dsh-credentials-dupkey-startup/)
 and [playbook 0021](playbooks/0021-a-required-plugin-fails-on-its-data-file.md).
 
@@ -539,6 +539,15 @@ Keep these in mind before starting a new investigation.
     package is named. Check for a shipped artifact first (`@koromix/koffi-<platform>`,
     `node-pty/prebuilds/`), and remember `.npmrc`'s `allow-scripts` **replaces** the whole list
     ([playbook 0022](playbooks/0022-an-install-script-warning-is-not-a-missing-artifact.md)).
+
+23. **A helper script handed to Windows must be ASCII-only, or it dies inside the temp file.** Windows
+    PowerShell 5.1 decodes a BOM-less UTF-8 script with the system ANSI code page; one em dash inside
+    an embedded JS string ate the closing quote and Node reported a syntax error in `%TEMP%`, not in
+    the script. Keep tooling ASCII (or add a BOM and test both hosts), and remember
+    `-ExecutionPolicy Bypass` is per-process for downloaded scripts. Also: with
+    `$ErrorActionPreference = 'Stop'`, a native command's stderr becomes a terminating error before
+    you can read `$LASTEXITCODE` -- use `Start-Process -Wait -RedirectStandardOutput/-RedirectStandardError`
+    instead of `& tool 2>`.
 
 ## Handing this over
 

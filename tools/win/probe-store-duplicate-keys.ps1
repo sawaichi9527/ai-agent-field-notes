@@ -33,9 +33,11 @@ duplicate keys in <path>:
 
 .NOTES
 Exit codes: 0 clean, 1 duplicates found, 2 file/loader problem, 3 another YAML error.
-Status: template -- the Node core is verified (four inputs: duplicate, clean, tab indent, missing
-file); the PowerShell wrapper has not been run to completion on Windows yet. Mark it proven after
-one real run.
+Status: proven -- run on 2026-11-22 against a real DSH credential store:
+`powershell -NoProfile -ExecutionPolicy Bypass -File .\probe-store-duplicate-keys.ps1 -Path
+"$env:USERPROFILE\.dsh\.credentials.yaml"` -> "OK: ... has no duplicate keys and parses.", exit 0.
+Host was Windows PowerShell 5.1 (no pwsh on PATH); the Node core was also verified separately on
+duplicate / clean / tab-indent / missing-file inputs.
 
 This file is ASCII-only on purpose. Windows PowerShell 5.1 decodes a BOM-less script with the system
 ANSI code page, so a non-ASCII character (an em dash was enough) inside the embedded JavaScript
