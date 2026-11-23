@@ -9,7 +9,7 @@
 > 前置知識：dsh 側任何 ppt-master 路由要先讀 `ppt-master-env`（解释器合入口，不落盤；系统模式
 > python 優先、python3 缺失回退 python；實時以 `ppt_master_check_env` 为准），再读 SKILL.md。
 >
-> 相关方法：[playbook 0024](../../playbooks/0024-import-a-deck-into-a-ppt-master-pack.md)（导入者
+> 相关方法：[playbook 0024](../../playbooks/0024-dsh-import-a-deck-into-a-ppt-master-pack.md)（导入者
 > 的可重用方法）、[playbook 0010](../../playbooks/0010-verify-a-plugin-we-can-call-its-tool.md)
 > （「装好≠能用」的 load/config/restart 模型——同一类：注册≠契约）。
 

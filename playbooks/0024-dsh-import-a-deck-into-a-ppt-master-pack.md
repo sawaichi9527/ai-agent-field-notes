@@ -10,7 +10,7 @@ consumer's artifact lands, how to register and how to retire, how to keep `/N` h
 and how to sync and verify two remotes.
 
 This is the method behind
-[`cases/2026-11-23-ppt-master-pack-import/`](../cases/2026-11-23-ppt-master-pack-import/).
+[`cases/2026-11-23-dsh-ppt-master-pack-import/`](../cases/2026-11-23-dsh-ppt-master-pack-import/).
 
 ## Name the two artifacts before importing anything
 
