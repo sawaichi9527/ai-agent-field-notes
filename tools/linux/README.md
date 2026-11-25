@@ -1,4 +1,4 @@
-# tools/linux — status: 6 probes + a ROCm toolkit
+# tools/linux — status: 7 probes + a ROCm toolkit
 
 The agent-CLI probes answer narrow questions surfaced by the Linux cases: desktop entry identity,
 package variant identity, launch-chain stage, what an engine actually streamed, and — added with the
@@ -14,6 +14,7 @@ package variant identity, launch-chain stage, what an engine actually streamed, 
 | [`probe-sse-delta-mix.py`](probe-sse-delta-mix.py) | when a UI's "N tokens" stops moving: what did the engine actually stream, how much of it was text vs tool-call arguments, and is one argument string repeating? | python3 + a server log with verbatim SSE packets |
 | [`probe-ttft-under-contention.py`](probe-ttft-under-contention.py) | a stalled request produced zero bytes — is the model slow, is the prompt cache cold, or was the request second in line behind a single-slot server? | python3 + an OpenAI-compatible streaming endpoint (bearer token in `TTFT_API_KEY`) |
 | [`grace/kernel-default-status.sh`](grace/kernel-default-status.sh) | which kernel does `GRUB_DEFAULT` point at, which kernel lineages are installed (nvidia-64k vs generic), and is the fallback lineage shielded from `apt autoremove`? | dpkg + apt-mark (read-only) |
+| [`probe-nuc6-audio.sh`](probe-nuc6-audio.sh) | audio is silent although ALSA/PipeWire report it healthy: is the config layer broken (SOF/AVS grabbing `00:1f.3`, `power_save`, a `model=` name that does not exist), or is every register open and the fault past the codec? | bash + amixer + pactl (read-only) |
 
 Exit code is `0` when identity resolves, every matching entry's `Icon` resolves at at least one
 standard size, and no explicit/exec-referencing entry is invalid; `1` when the window would fall back
@@ -34,6 +35,12 @@ and [`cases/2026-11-20-hermes-stale-breaker-latched/`](../../cases/2026-11-20-he
 capability artifact, `1` otherwise — usable as an upgrade guard. Used by
 [playbook 0007](../../playbooks/0007-same-version-different-artifact.md) and
 [`cases/2026-11-04-rustdesk-wayland-unattended/`](../../cases/2026-11-04-rustdesk-wayland-unattended/).
+
+`probe-nuc6-audio.sh` exits `1` when the config layer is broken (SOF/AVS loaded, `power_save` not 0,
+a `model=` that is not one of the four ALC283 fixup names, or no card) and `0` when every stage reads
+open — the point where the answer stops being a setting. Used by
+[playbook 0025](../../playbooks/0025-power-cycle-resets-what-reboot-cannot.md) and
+[`cases/2026-11-25-nuc6-alc283-cold-boot-not-reboot/`](../../cases/2026-11-25-nuc6-alc283-cold-boot-not-reboot/).
 
 ## ROCm toolkit (not probes)
 

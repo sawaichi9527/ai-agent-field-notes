@@ -580,6 +580,15 @@ Keep these in mind before starting a new investigation.
     prove with `sc.exe qc` (start type / account / binary path) once it settles
     ([playbook 0023](playbooks/0023-always-on-is-an-installed-service.md)).
 
+25. **A codec that measures fully open can still be silent, and `reboot` is not a reset.** On the
+    NUC6/ALC283 box (2026-11-25) the card, sink, jack, PCM clock and every amp read healthy while
+    nothing came out; the state that mattered sat in the analog stage and only a shutdown + AC
+    removal cleared it. Two `model=` strings (`alc283-dac`, `intel-nuc-headset-jack`) had been
+    recorded in sysfs for months and credited for a recovery they never caused — neither name exists
+    in the fixup table, and the autoconfig line was generic the whole time
+    ([playbook 0025](playbooks/0025-power-cycle-resets-what-reboot-cannot.md),
+    [case](cases/2026-11-25-nuc6-alc283-cold-boot-not-reboot/)).
+
 ## Handing this over
 
 If you are picking this up: read `README.md` for the map, then

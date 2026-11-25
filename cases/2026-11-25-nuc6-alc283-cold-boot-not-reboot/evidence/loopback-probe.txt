@@ -1,0 +1,45 @@
+# The loopback probe: a negative result that is NOT evidence of silence
+# 2026-11-25, during the no-sound warm boot (kernel 7.0.0-44-generic)
+
+## What was tried
+
+ALC283 has a "Loopback Mixing" switch, and the capture side (ADC 0x08) exposes a
+device (hw:0,0, pcmC0D0c). The idea: feed the codec a known tone on the playback
+side, record the capture side, and look for the tone — an "ears-free" check of the
+DAC path.
+
+```
+systemctl --user stop pipewire pipewire-pulse wireplumber
+amixer -c0 sset 'Capture' 100% unmute
+amixer -c0 sset 'Loopback Mixing' Enabled
+aplay  -D hw:0,0 /tmp/t.wav          # 3 s, 440 Hz, amplitude 30000/32768
+arecord -D hw:0,0 -f S16_LE -c2 -r48000 -d 2 /tmp/rec.wav
+```
+
+Analysis of `/tmp/rec.wav` (96000 frames):
+
+```
+peak = 0.00391   rms = 0.00086   440 Hz component = -98.7 dBFS
+```
+
+No tone. That looks like "the DAC is silent" — it is not.
+
+## Why the result is worthless
+
+On this codec the ADC captures node `0x0b`, and `0x0b` is the **mic/beep mixer**:
+
+```
+Node 0x0b [Audio Mixer] wcaps 0x20010b: Stereo Amp-In
+  Connection: 5
+     0x18 0x19 0x1a 0x1b 0x1d        # mic pins, beep — no DAC input
+```
+
+The playback DAC (`0x02`) reaches the pin through `0x0c`, never through `0x0b`.
+So "Loopback Mixing" on ALC283 cannot carry program audio back into the ADC: the
+probe is incapable of seeing the effect it was supposed to test.
+
+## Rule applied
+
+Methodology §2 — validate the instrument before trusting the reading. A probe that
+cannot produce the effect must be retired, not interpreted. This file exists so the
+next investigation does not re-run it and conclude "the DAC is dead".
