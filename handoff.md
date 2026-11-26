@@ -3,7 +3,7 @@
 State transfer document. `README.md` says what this repo is; **this file says where things stand**
 and what the next person (usually future me) has to do.
 
-Last updated: 2026-11-22 (Asia/Taipei)
+Last updated: 2026-11-26 (Asia/Taipei)
 
 ## Baseline environment
 
@@ -219,6 +219,32 @@ whole set. The always-on mode is a registered Windows service **"RustDesk Servic
 Details: [`cases/2026-11-22-rustdesk-service-mode-win/`](cases/2026-11-22-rustdesk-service-mode-win/)
 and [playbook 0023](playbooks/0023-always-on-is-an-installed-service.md).
 
+### 11. "The model does not declare image input" is a client-side fact, not a server one (2026-11-26)
+
+A multimodal model served under a stable id (the same id is used by every lane on a 2-node cluster,
+and lane switching changes whether vision exists) was not used for vision: the agent OCR'd the
+screenshot and reported that the model "does not declare image input". It was right — and the fix
+cannot be server-side.
+
+- OpenAI-compatible `/v1/models` carries **no capability field** (vLLM: `id / root / max_model_len /
+  permission` only).
+- **None of the three clients queries it.** dsh (pi-ai) resolves `input` → bundled catalog → route
+  `defaultInput` → `["text"]`; opencode reads `models.<id>.modalities`; hermes-agent reads
+  models.dev or `model.supports_vision`.
+- dsh **refuses the image before attaching it**, so the bytes never leave the client — patching
+  `/v1/models`, adding a served name, or injecting capability in a gateway changes nothing.
+- dsh's modality vocabulary is `text|image` only (`audio` is rejected); tools are never gated there
+  (its `compat` switches only reshape the request); audio is an STT plugin.
+
+**Fix:** one-off per client — dsh `input: [text, image]` (live file is the **profile patch layer**,
+not the migrated `settings.yaml`), opencode `modalities.input`, hermes `supports_vision: true`.
+**Residual risk:** the same id also serves text-only lanes, so over-claiming returns
+`400 "<id> is not a multimodal model"` mid-turn; a server-side placeholder patch (image → explicit
+text) is the only way to keep one id and never touch the clients again — still open.
+
+Details: [`cases/2026-11-26-unified-model-id-vision-capability/`](cases/2026-11-26-unified-model-id-vision-capability/)
+and [playbook 0026](playbooks/0026-a-capability-flag-is-a-client-claim.md).
+
 ## Open
 
 | # | Item | Why it matters | Starting point |
@@ -227,6 +253,8 @@ and [playbook 0023](playbooks/0023-always-on-is-an-installed-service.md).
 | 2 | **A/B `dsh` 0.2.0 vs 0.2.1 startup** | proves or disproves "the upgrade made it slower" — never measured, only assumed | npm cache still holds a `dsh-0.2.0` tarball; install to a separate prefix, measure both against one isolated `DSH_HOME` |
 | 3 | Re-check after every `dsh-gitea` upgrade | patch #2 is silently reverted by upgrades — confirmed on 0.7.41 | run `cases/2026-10-30-dsh-console-flash-win/reapply-windowsHide-patch.ps1`, restart, probe 30 s |
 | 4 | Suggest a configurable poll interval to `dsh-gitea` | 4000 ms is hard-coded = 900 `git` spawns/hour for nothing | — |
+| 5 | **Verify the vision declaration end-to-end** | the config is written, but at the time no vision lane was live — `dump-config` does not prove the client sent pixels | switch the cluster to a vision lane, attach the same synthetic image, and require `prompt_tokens` +300–400/image plus a correct native description |
+| 6 | **Server-side placeholder for text-only lanes** | over-claiming dies mid-turn on 4 of 10 lanes; without this, "one id + one client config" is not actually safe | patch the two text-only images to replace an unsupported image part with explicit text (`[image omitted: …]`), env-gated and fail-closed |
 
 ## Linux track (added 2026-11-02; second pass same day)
 
